@@ -1,0 +1,156 @@
+{
+  "format": "nocturne-patch",
+  "version": 1,
+  "meta": {
+    "name": "SUB",
+    "author": "NOCTURNE",
+    "description": "Deep bass: saw + sub sine through a closing low-pass"
+  },
+  "global": {
+    "mode": "mono",
+    "voices": 4,
+    "glide": 0.04,
+    "legato": true
+  },
+  "modules": [
+    {
+      "name": "MASTER",
+      "type": "master",
+      "params": {
+        "level": 0.7
+      }
+    },
+    {
+      "name": "OSC1",
+      "type": "osc",
+      "params": {
+        "wave": "saw",
+        "key": "on",
+        "oct": 0,
+        "semi": 0,
+        "fine": 0.0,
+        "freq": 261.6256,
+        "level": 0.8,
+        "pw": 0.5,
+        "phase": 0.0
+      }
+    },
+    {
+      "name": "OSC2",
+      "type": "osc",
+      "params": {
+        "wave": "sine",
+        "key": "on",
+        "oct": -1,
+        "semi": 0,
+        "fine": 0.0,
+        "freq": 261.6256,
+        "level": 1.0,
+        "pw": 0.5,
+        "phase": 0.0
+      }
+    },
+    {
+      "name": "MIX1",
+      "type": "mixer",
+      "params": {
+        "level1": 0.6,
+        "level2": 0.9,
+        "level3": 0.7,
+        "level4": 0.7
+      }
+    },
+    {
+      "name": "FILTER1",
+      "type": "filter",
+      "params": {
+        "type": "lowpass",
+        "cutoff": 220.0,
+        "res": 0.35,
+        "drive": 0.25,
+        "keytrack": 0.0
+      }
+    },
+    {
+      "name": "ADSR1",
+      "type": "adsr",
+      "params": {
+        "attack": 0.005,
+        "decay": 0.25,
+        "sustain": 0.85,
+        "release": 0.18,
+        "velocity": 0.5
+      }
+    },
+    {
+      "name": "ADSR2",
+      "type": "adsr",
+      "params": {
+        "attack": 0.002,
+        "decay": 0.35,
+        "sustain": 0.0,
+        "release": 0.2,
+        "velocity": 0.5
+      }
+    },
+    {
+      "name": "AMP1",
+      "type": "amp",
+      "params": {
+        "gain": 0.8
+      }
+    },
+    {
+      "name": "DRIVE1",
+      "type": "drive",
+      "params": {
+        "drive": 0.35,
+        "tone": 6000.0,
+        "mix": 0.6,
+        "level": 0.9
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": "OSC1.OUT",
+      "to": "MIX1.IN1",
+      "amount": 1.0
+    },
+    {
+      "from": "OSC2.OUT",
+      "to": "MIX1.IN2",
+      "amount": 1.0
+    },
+    {
+      "from": "MIX1.OUT",
+      "to": "FILTER1.IN",
+      "amount": 1.0
+    },
+    {
+      "from": "ADSR2.OUT",
+      "to": "FILTER1.CUTOFF",
+      "amount": 0.45
+    },
+    {
+      "from": "FILTER1.OUT",
+      "to": "AMP1.IN",
+      "amount": 1.0
+    },
+    {
+      "from": "ADSR1.OUT",
+      "to": "AMP1.GAIN",
+      "amount": 1.0
+    },
+    {
+      "from": "AMP1.OUT",
+      "to": "DRIVE1.IN",
+      "amount": 1.0
+    },
+    {
+      "from": "DRIVE1.OUT",
+      "to": "MASTER.IN",
+      "amount": 1.0
+    }
+  ]
+}

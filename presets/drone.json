@@ -1,0 +1,211 @@
+{
+  "format": "nocturne-patch",
+  "version": 1,
+  "meta": {
+    "name": "DRONE",
+    "author": "NOCTURNE",
+    "description": "Slow evolving ambient pad: detuned saws, two LFOs, long tails"
+  },
+  "global": {
+    "mode": "poly",
+    "voices": 6,
+    "glide": 0.0,
+    "legato": true
+  },
+  "modules": [
+    {
+      "name": "MASTER",
+      "type": "master",
+      "params": {
+        "level": 0.7
+      }
+    },
+    {
+      "name": "OSC1",
+      "type": "osc",
+      "params": {
+        "wave": "saw",
+        "key": "on",
+        "oct": 0,
+        "semi": 0,
+        "fine": -9.0,
+        "freq": 261.6256,
+        "level": 0.6,
+        "pw": 0.5,
+        "phase": 0.0
+      }
+    },
+    {
+      "name": "OSC2",
+      "type": "osc",
+      "params": {
+        "wave": "saw",
+        "key": "on",
+        "oct": 0,
+        "semi": 0,
+        "fine": 8.0,
+        "freq": 261.6256,
+        "level": 0.6,
+        "pw": 0.5,
+        "phase": 0.0
+      }
+    },
+    {
+      "name": "OSC3",
+      "type": "osc",
+      "params": {
+        "wave": "pulse",
+        "key": "on",
+        "oct": -1,
+        "semi": 0,
+        "fine": 0.0,
+        "freq": 261.6256,
+        "level": 0.5,
+        "pw": 0.5,
+        "phase": 0.0
+      }
+    },
+    {
+      "name": "MIX1",
+      "type": "mixer",
+      "params": {
+        "level1": 0.55,
+        "level2": 0.55,
+        "level3": 0.5,
+        "level4": 0.7
+      }
+    },
+    {
+      "name": "FILTER1",
+      "type": "filter",
+      "params": {
+        "type": "lowpass",
+        "cutoff": 900.0,
+        "res": 0.3,
+        "drive": 0.0,
+        "keytrack": 0.0
+      }
+    },
+    {
+      "name": "LFO1",
+      "type": "lfo",
+      "params": {
+        "wave": "sine",
+        "rate": 0.11,
+        "depth": 0.5,
+        "polarity": "bipolar",
+        "reset": "free"
+      }
+    },
+    {
+      "name": "LFO2",
+      "type": "lfo",
+      "params": {
+        "wave": "sine",
+        "rate": 0.23,
+        "depth": 0.5,
+        "polarity": "bipolar",
+        "reset": "free"
+      }
+    },
+    {
+      "name": "ADSR1",
+      "type": "adsr",
+      "params": {
+        "attack": 3.5,
+        "decay": 2.0,
+        "sustain": 0.9,
+        "release": 6.0,
+        "velocity": 0.5
+      }
+    },
+    {
+      "name": "AMP1",
+      "type": "amp",
+      "params": {
+        "gain": 0.8
+      }
+    },
+    {
+      "name": "DELAY1",
+      "type": "delay",
+      "params": {
+        "time": 620.0,
+        "feedback": 0.55,
+        "damp": 2500.0,
+        "mix": 0.35
+      }
+    },
+    {
+      "name": "REVERB1",
+      "type": "reverb",
+      "params": {
+        "size": 0.95,
+        "damp": 0.6,
+        "mix": 0.5
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": "OSC1.OUT",
+      "to": "MIX1.IN1",
+      "amount": 1.0
+    },
+    {
+      "from": "OSC2.OUT",
+      "to": "MIX1.IN2",
+      "amount": 1.0
+    },
+    {
+      "from": "OSC3.OUT",
+      "to": "MIX1.IN3",
+      "amount": 1.0
+    },
+    {
+      "from": "MIX1.OUT",
+      "to": "FILTER1.IN",
+      "amount": 1.0
+    },
+    {
+      "from": "LFO1.OUT",
+      "to": "FILTER1.CUTOFF",
+      "amount": 0.35
+    },
+    {
+      "from": "LFO2.OUT",
+      "to": "OSC3.PWM",
+      "amount": 0.8
+    },
+    {
+      "from": "FILTER1.OUT",
+      "to": "AMP1.IN",
+      "amount": 1.0
+    },
+    {
+      "from": "ADSR1.OUT",
+      "to": "AMP1.GAIN",
+      "amount": 1.0
+    },
+    {
+      "from": "AMP1.OUT",
+      "to": "DELAY1.IN",
+      "amount": 1.0
+    },
+    {
+      "from": "DELAY1.OUT",
+      "to": "REVERB1.IN",
+      "amount": 1.0
+    },
+    {
+      "from": "REVERB1.L",
+      "to": "MASTER.L",
+      "amount": 1.0
+    },
+    {
+      "from": "REVERB1.R",
+      "to": "MASTER.R",
+      "amount": 1.0
+    }
+  ]
+}

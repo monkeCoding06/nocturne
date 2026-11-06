@@ -1,0 +1,141 @@
+{
+  "format": "nocturne-patch",
+  "version": 1,
+  "meta": {
+    "name": "NOISE",
+    "author": "NOCTURNE",
+    "description": "Filtered noise: wind and percussive hits, LFO on the band-pass"
+  },
+  "global": {
+    "mode": "poly",
+    "voices": 6,
+    "glide": 0.0,
+    "legato": true
+  },
+  "modules": [
+    {
+      "name": "MASTER",
+      "type": "master",
+      "params": {
+        "level": 0.7
+      }
+    },
+    {
+      "name": "OSC1",
+      "type": "osc",
+      "params": {
+        "wave": "noise",
+        "key": "on",
+        "oct": 0,
+        "semi": 0,
+        "fine": 0.0,
+        "freq": 261.6256,
+        "level": 0.9,
+        "pw": 0.5,
+        "phase": 0.0
+      }
+    },
+    {
+      "name": "FILTER1",
+      "type": "filter",
+      "params": {
+        "type": "bandpass",
+        "cutoff": 1200.0,
+        "res": 0.7,
+        "drive": 0.0,
+        "keytrack": 1.0
+      }
+    },
+    {
+      "name": "ADSR1",
+      "type": "adsr",
+      "params": {
+        "attack": 0.04,
+        "decay": 0.5,
+        "sustain": 0.5,
+        "release": 0.6,
+        "velocity": 0.5
+      }
+    },
+    {
+      "name": "ADSR2",
+      "type": "adsr",
+      "params": {
+        "attack": 0.02,
+        "decay": 0.6,
+        "sustain": 0.2,
+        "release": 0.5,
+        "velocity": 0.5
+      }
+    },
+    {
+      "name": "LFO1",
+      "type": "lfo",
+      "params": {
+        "wave": "sine",
+        "rate": 0.4,
+        "depth": 0.5,
+        "polarity": "bipolar",
+        "reset": "free"
+      }
+    },
+    {
+      "name": "AMP1",
+      "type": "amp",
+      "params": {
+        "gain": 0.8
+      }
+    },
+    {
+      "name": "REVERB1",
+      "type": "reverb",
+      "params": {
+        "size": 0.7,
+        "damp": 0.5,
+        "mix": 0.3
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": "OSC1.OUT",
+      "to": "FILTER1.IN",
+      "amount": 1.0
+    },
+    {
+      "from": "ADSR2.OUT",
+      "to": "FILTER1.CUTOFF",
+      "amount": 0.5
+    },
+    {
+      "from": "LFO1.OUT",
+      "to": "FILTER1.CUTOFF",
+      "amount": 0.25
+    },
+    {
+      "from": "FILTER1.OUT",
+      "to": "AMP1.IN",
+      "amount": 1.0
+    },
+    {
+      "from": "ADSR1.OUT",
+      "to": "AMP1.GAIN",
+      "amount": 1.0
+    },
+    {
+      "from": "AMP1.OUT",
+      "to": "REVERB1.IN",
+      "amount": 1.0
+    },
+    {
+      "from": "REVERB1.L",
+      "to": "MASTER.L",
+      "amount": 1.0
+    },
+    {
+      "from": "REVERB1.R",
+      "to": "MASTER.R",
+      "amount": 1.0
+    }
+  ]
+}

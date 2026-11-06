@@ -1,0 +1,153 @@
+# NOCTURNE
+
+A modular software synthesizer that lives entirely in the terminal. Real-time DSP,
+a real signal graph, a playable computer keyboard, and a TUI built with FTXUI.
+
+> Sound is something you build, manipulate, destroy, and discover.
+
+* **Language:** C++20, **build:** CMake, **TUI:** FTXUI, **audio:** miniaudio (WASAPI / ALSA / PulseAudio / PipeWire via miniaudio backends), **patches:** JSON (nlohmann/json).
+* Dependencies are fetched automatically by CMake (`FetchContent`). No other libraries.
+
+## Text preview
+
+```text
+ NOCTURNE   F1 RACK  F2 BAY  F3 PLAY  F4 PATCHES  F5 SETTINGS  F6 HELP     PATCH: LEAD
+ ──────────────────────────────────────────────────────────────────────────────────
+ ┌ OSC1 ───────────┐ ┌ FILTER1 ─────────┐ ┌ AMP1 ───────────┐
+ │ WAVE   SAW      │ │ TYPE   LOWPASS   │ │ GAIN  █████░░   │
+ │ CUTOFF ...      │ │ CUTOFF 2400 Hz   │ └─────────────────┘
+ └─────────────────┘ └──────────────────┘
+   CUTOFF      ◀──────●────────▶  2400 Hz
+ ──────────────────────────────────────────────────────────────────────────────────
+  L ▓▓▓▓▒░░ R ▓▓▓▓▒░░ -8.2 dB │ VOICES 2/8 │ CPU 3% │ OCT 4 │ TIMED 0.5s   AUDIO ON
+```
+
+Six views: **F1 Rack**, **F2 Patch bay**, **F3 Play** (piano + live oscilloscope),
+**F4 Patches**, **F5 Settings**, **F6 Help**. Meters and scope read the real output.
+
+## Architecture
+
+```
+src/dsp       oscillator (PolyBLEP/PolyBLAMP), ADSR, filter, LFO, delay/saturator/reverb
+src/modules   module registry: specs (ports, params) + DSP wrappers
+src/patch     patch model, graph validation, cycle check, JSON I/O, factory presets
+src/audio     lock-free queue, voice allocator, compiled rack, Engine, miniaudio device
+src/input     key -> note mapping (timed / latch); MIDI could call the Engine directly
+src/app       Session: patch editing, config, patch files, engine sync
+src/tui       FTXUI views
+tests         DSP, patch and engine tests (no audio hardware needed)
+```
+
+The engine never touches the UI. The UI thread sends events through a lock-free
+queue; the audio thread owns all DSP state. Patch edits that change the graph build a
+new compiled rack on the UI thread, which the audio thread swaps in (with a short
+duck/fade, state is carried over). Retired racks are freed on the UI thread. The
+audio callback does no allocation, locking, disk or terminal I/O.
+
+## Build
+
+### Linux
+```sh
+sudo apt install build-essential cmake ninja-build libasound2-dev   # Debian/Ubuntu
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+ctest --test-dir build
+./build/nocturne
+```
+### Windows (MSYS2 MinGW-w64 or Visual Studio)
+```powershell
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+ctest --test-dir build
+.\build\nocturne.exe
+```
+With Visual Studio use `cmake -S . -B build` then `cmake --build build --config Release`.
+Use Windows Terminal for best colors and Unicode. Options: `-DNOCTURNE_BUILD_TESTS=OFF`,
+`-DNOCTURNE_BUILD_APP=OFF` (DSP core + tests only, no network fetch of FTXUI/miniaudio).
+
+`nocturne --export-presets DIR` writes the factory patches as JSON (see `presets/`).
+
+## Playing
+
+Terminals report key presses but **never releases**, so NOCTURNE offers two honest modes
+(toggle with **Tab** in the Play view or in Settings):
+
+* **TIMED**: each key sounds for NOTE LENGTH (default 0.5 s), then releases. Holding a key
+  (auto-repeat) extends it.
+* **LATCH**: press a key to start the note, press it again to release it.
+
+```text
+  sharps:   2 3   5 6 7   9 0        (upper row, octave+1)
+  notes:   Q W E R T Y U I O P
+  sharps:    S D   G H J   L         (lower row)
+  notes:    Z X C V B N M , . /
+```
+CAPS = accent (full velocity). `[` `]` octave, Up/Down (Play view) velocity,
+**Space** panic, **Esc** release all.
+
+## Controls
+
+| Key | Action |
+|---|---|
+| F1–F6, `` ` `` | switch views |
+| F7 / Ctrl+S | save patch · F8 / Ctrl+N new patch · F10 / Ctrl+Q quit |
+| Rack: Tab, ↑↓ | select module / parameter |
+| ←→ | adjust (coarse); Ctrl+←→ or `-` `=` fine |
+| Enter | type a value (`2.4k`, `440`, `saw`) · Backspace resets to default |
+| A / Delete | add / remove module |
+| Bay: Tab, Enter | switch list; arm source, then Enter on destination |
+| Bay: ←→, Delete | connection amount, disconnect |
+
+Frequency-like parameters use logarithmic travel. Min/max are shown when entering a value.
+
+## Tutorial: a sound from an empty patch
+
+1. **F8** new patch (only MASTER exists).
+2. **F1**, press **A**, add OSCILLATOR, ENVELOPE (ADSR), AMPLIFIER.
+3. **F2**: connect `OSC1.OUT → AMP1.IN`, `AMP1.OUT → MASTER.IN`, `ADSR1.OUT → AMP1.GAIN`.
+4. Play a key (Z, X, C…). Pick WAVE in the Rack; add a FILTER and re-route `OSC1.OUT → FILTER1.IN → AMP1.IN`.
+5. Sweep CUTOFF while playing. Edit A/D/S/R on the ADSR.
+6. Add an LFO, connect `LFO1.OUT → FILTER1.CUTOFF`, adjust its amount in the Connections list.
+7. Add another OSCILLATOR, detune it slightly, connect to the same filter.
+8. Add DELAY / REVERB before MASTER and raise their mix.
+9. **F7** to save; **F4** to reload it later (user patches live in the config directory).
+
+## Example signal paths
+
+```text
+OSC1.OUT ──▶ FILTER1.IN ──▶ AMP1.IN ──▶ MASTER.IN
+ADSR1.OUT ─────────────────▶ AMP1.GAIN
+LFO1.OUT ──────────────────▶ FILTER1.CUTOFF
+OSC2.OUT ──────────────────▶ OSC1.FM          (FM)
+```
+
+Cyan ports are audio, amber ports are control. Audio can only feed audio inputs and
+FM-capable control inputs. Connections that would create a cycle, duplicate or cross
+voice/global scope incorrectly are refused with a message. Each connection has an
+amount (−1…1; negative inverts).
+
+## Factory patches
+
+INIT (sine), SUB (bass), GLASS (FM bell + delay/reverb), DRONE (evolving, LFO-modulated),
+NOISE (band-passed noise), LEAD (mono, glide). Each is a real graph, not a renamed copy.
+
+## Files
+
+Config and patches: `%APPDATA%\nocturne\` (Windows) or `~/.config/nocturne/` (Linux):
+`config.json` and `patches/*.json` (human readable).
+
+## Troubleshooting
+
+* **AUDIO OFF**: open F5, check the error text, choose another device or buffer, press Enter to retry. NOCTURNE keeps running without audio.
+* **Crackles**: raise BUFFER in Settings; watch CPU in the status bar.
+* **Garbled boxes / colors**: use a UTF-8, truecolor terminal (Windows Terminal, kitty, iTerm2…). Minimum size 78×22.
+* **Notes won't stop**: Space (panic). In LATCH mode press the key again.
+* **Linux without sound server**: install ALSA dev packages; miniaudio picks PulseAudio/ALSA/JACK automatically.
+
+## Testing
+
+`ctest --test-dir build` runs 47 tests: oscillator pitch and anti-aliasing, ADSR
+transitions, filter stability, parameter limits, graph validation and cycle detection,
+JSON round trips, voice allocation/stealing, and offline rendering of every factory preset
+(measured for non-silence and clipping). Audio hardware output was not auditioned by ear in
+development; correctness is verified through generated sample buffers.

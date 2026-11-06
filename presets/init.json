@@ -1,0 +1,74 @@
+{
+  "format": "nocturne-patch",
+  "version": 1,
+  "meta": {
+    "name": "INIT",
+    "author": "NOCTURNE",
+    "description": "Plain sine synthesizer: OSC > AMP (ADSR) > MASTER"
+  },
+  "global": {
+    "mode": "poly",
+    "voices": 8,
+    "glide": 0.0,
+    "legato": true
+  },
+  "modules": [
+    {
+      "name": "MASTER",
+      "type": "master",
+      "params": {
+        "level": 0.7
+      }
+    },
+    {
+      "name": "OSC1",
+      "type": "osc",
+      "params": {
+        "wave": "sine",
+        "key": "on",
+        "oct": 0,
+        "semi": 0,
+        "fine": 0.0,
+        "freq": 261.6256,
+        "level": 0.8,
+        "pw": 0.5,
+        "phase": 0.0
+      }
+    },
+    {
+      "name": "ADSR1",
+      "type": "adsr",
+      "params": {
+        "attack": 0.01,
+        "decay": 0.3,
+        "sustain": 0.7,
+        "release": 0.4,
+        "velocity": 0.5
+      }
+    },
+    {
+      "name": "AMP1",
+      "type": "amp",
+      "params": {
+        "gain": 0.8
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": "OSC1.OUT",
+      "to": "AMP1.IN",
+      "amount": 1.0
+    },
+    {
+      "from": "ADSR1.OUT",
+      "to": "AMP1.GAIN",
+      "amount": 1.0
+    },
+    {
+      "from": "AMP1.OUT",
+      "to": "MASTER.IN",
+      "amount": 1.0
+    }
+  ]
+}
