@@ -31,7 +31,7 @@ inline float wrap01(float x) {
 float Oscillator::next(Wave wave, float dt, float pw, float phaseOffset) {
   dt = clampv(dt, 1e-7f, 0.49f);
   pw = clampv(pw, 0.02f, 0.98f);
-  const float p = wrap01(phase_ + phaseOffset);
+  const float p = wrap01(static_cast<float>(phase_) + phaseOffset);
   float out = 0.0f;
 
   switch (wave) {
@@ -65,8 +65,8 @@ float Oscillator::next(Wave wave, float dt, float pw, float phaseOffset) {
       break;
   }
 
-  phase_ += dt;
-  if (phase_ >= 1.0f) phase_ -= std::floor(phase_);
+  phase_ += static_cast<double>(dt);
+  if (phase_ >= 1.0) phase_ -= std::floor(phase_);
   return out;
 }
 

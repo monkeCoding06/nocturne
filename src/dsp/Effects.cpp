@@ -2,6 +2,56 @@
 
 namespace nocturne::dsp {
 
+// --------------------------------------------------------------- Chorus
+void Chorus::prepare(double sr) {
+  sr_ = static_cast<float>(sr);
+  int n = 1;
+  const int needed = static_cast<int>(0.06f * sr_) + 8;
+  while (n < needed) n <<= 1;
+  buf_.assign(static_cast<size_t>(n), 0.0f);
+  mask_ = n - 1;
+  reset();
+}
+
+void Chorus::reset() {
+  std::fill(buf_.begin(), buf_.end(), 0.0f);
+  write_ = 0;
+}
+
+float Chorus::tap(float t) const {
+  const float readPos = static_cast<float>(write_) - t;
+  const float fl = std::floor(readPos);
+  const float frac = readPos - fl;
+  const int i1 = static_cast<int>(fl) & mask_;
+  const float ym1 = buf_[static_cast<size_t>((i1 - 1) & mask_)];
+  const float y0 = buf_[static_cast<size_t>(i1)];
+  const float y1 = buf_[static_cast<size_t>((i1 + 1) & mask_)];
+  const float y2 = buf_[static_cast<size_t>((i1 + 2) & mask_)];
+  const float c1 = 0.5f * (y1 - ym1);
+  const float c2 = ym1 - 2.5f * y0 + 2.0f * y1 - 0.5f * y2;
+  const float c3 = 0.5f * (y2 - ym1) + 1.5f * (y0 - y1);
+  return ((c3 * frac + c2) * frac + c1) * frac + y0;
+}
+
+void Chorus::process(float in, float rateHz, float depthMs, float baseMs, float& wetL, float& wetR) {
+  buf_[static_cast<size_t>(write_)] = sanitize(in);
+  const float maxT = static_cast<float>(mask_ - 4);
+  const float base = baseMs * 0.001f * sr_;
+  const float depth = std::min(depthMs, baseMs - 0.5f) * 0.001f * sr_;
+  const double incL = static_cast<double>(clampv(rateHz, 0.0f, 10.0f)) / sr_;
+  const double incR = incL * 1.13;  // small rate offset between channels
+  float l = 0.0f, r = 0.0f;
+  for (int k = 0; k < kTaps; ++k) {
+    l += tap(clampv(base + depth * std::sin(kTwoPi * static_cast<float>(phaseL_[k])), 2.0f, maxT));
+    r += tap(clampv(base + depth * std::sin(kTwoPi * static_cast<float>(phaseR_[k])), 2.0f, maxT));
+    phaseL_[k] += incL; if (phaseL_[k] >= 1.0) phaseL_[k] -= 1.0;
+    phaseR_[k] += incR; if (phaseR_[k] >= 1.0) phaseR_[k] -= 1.0;
+  }
+  wetL = l * (1.0f / kTaps);
+  wetR = r * (1.0f / kTaps);
+  write_ = (write_ + 1) & mask_;
+}
+
 // ---------------------------------------------------------------- Delay
 void Delay::prepare(double sr, float maxSeconds) {
   sr_ = static_cast<float>(sr);

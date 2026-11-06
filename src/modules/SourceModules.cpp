@@ -77,11 +77,12 @@ class OscModule final : public Module {
 // ------------------------------------------------------------------ LFO
 class LfoModule final : public Module {
  public:
-  enum Param { Wave, Rate, Depth, Polarity, Reset };
+  enum Param { Wave, Rate, Depth, Polarity, Reset, Phase, Delay, Fade };
 
   void prepare(double sr) override {
     Module::prepare(sr);
     lfo_.setSampleRate(sr);
+    lfo_.seed(nextSeed());
     depth_.setSampleRate(sr);
     depth_.setTime(0.01f);
     rate_.setSampleRate(sr);
@@ -89,9 +90,11 @@ class LfoModule final : public Module {
   }
   void reset() override {
     primed_ = false;
+    elapsed_ = 1e9;  // no delay/fade until a note starts
     lfo_.reset(param(Reset) > 0.5f ? 0.0f : noise_.next() * 0.5f + 0.5f);
   }
   void trigger(const VoiceCtx&) override {
+    elapsed_ = 0.0;  // delay and fade-in restart with every note
     if (param(Reset) > 0.5f) lfo_.reset(0.0f);
   }
 
@@ -105,13 +108,21 @@ class LfoModule final : public Module {
     rate_.setTarget(param(Rate));
     const auto wave = static_cast<dsp::LfoWave>(static_cast<int>(param(Wave)));
     const bool unipolar = param(Polarity) > 0.5f;
+    const float phase = param(Phase) / 360.0f;
+    const double delay = param(Delay), fade = param(Fade);
+    const double dtSec = 1.0 / sr_;
     const float* rateIn = io.in[0];
     for (int i = 0; i < io.n; ++i) {
       float r = rate_.next();
       if (rateIn) r *= std::exp2(rateIn[i]);
-      float v = lfo_.next(wave, r);
+      float v = lfo_.next(wave, r, phase);
       if (unipolar) v = 0.5f + 0.5f * v;
-      io.out[0][i] = v * depth_.next();
+      float env = 1.0f;
+      if (elapsed_ < delay + fade) {
+        env = elapsed_ < delay ? 0.0f : (fade > 0.0 ? static_cast<float>((elapsed_ - delay) / fade) : 1.0f);
+        elapsed_ += dtSec;
+      }
+      io.out[0][i] = v * depth_.next() * env;
     }
   }
 
@@ -119,6 +130,7 @@ class LfoModule final : public Module {
   dsp::Lfo lfo_;
   dsp::Smoothed depth_, rate_;
   dsp::Noise noise_{nextSeed()};
+  double elapsed_ = 1e9;
   bool primed_ = false;
 };
 
@@ -169,11 +181,14 @@ void registerSourceModules(std::vector<ModuleSpec>& out) {
     s.inputs = {cvIn("RATE", "1 V/oct rate CV")};
     s.outputs = {cvOut("OUT")};
     s.params = {
-        enumParam("wave", "WAVE", {"SINE", "TRI", "SQUARE", "SAW"}, 0),
-        floatParam("rate", "RATE", 0.02f, 100.0f, 2.5f, "Hz", ParamScale::Log),
+        enumParam("wave", "WAVE", {"SINE", "TRI", "SQUARE", "SAW", "RSAW", "S&H"}, 0),
+        floatParam("rate", "RATE", 0.01f, 100.0f, 2.5f, "Hz", ParamScale::Log),
         floatParam("depth", "DEPTH", 0.0f, 1.0f, 0.5f),
         enumParam("polarity", "POLARITY", {"BIPOLAR", "UNIPOLAR"}, 0),
         enumParam("reset", "RESET", {"FREE", "KEY"}, 1),
+        floatParam("phase", "PHASE", 0.0f, 360.0f, 0.0f, "deg", ParamScale::Linear, 0),
+        floatParam("delay", "DELAY", 0.0f, 5.0f, 0.0f, "s"),
+        floatParam("fade", "FADE IN", 0.0f, 5.0f, 0.0f, "s"),
     };
     s.create = [] { return std::unique_ptr<Module>(new LfoModule()); };
     out.push_back(std::move(s));

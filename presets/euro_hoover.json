@@ -1,0 +1,294 @@
+{
+  "format": "nocturne-patch",
+  "version": 1,
+  "meta": {
+    "name": "EURO HOOVER",
+    "author": "NOCTURNE",
+    "description": "90s rave hoover: saw/PWM stack, pitch dive, delayed vibrato, chorus. Great at C1-C3"
+  },
+  "global": {
+    "mode": "poly",
+    "voices": 6,
+    "glide": 0.0,
+    "legato": true
+  },
+  "modules": [
+    {
+      "name": "MASTER",
+      "type": "master",
+      "params": {
+        "level": 0.7
+      }
+    },
+    {
+      "name": "OSC1",
+      "type": "osc",
+      "params": {
+        "wave": "saw",
+        "key": "on",
+        "oct": 0,
+        "semi": 0,
+        "fine": 0.0,
+        "freq": 261.6256,
+        "level": 0.9,
+        "pw": 0.5,
+        "phase": 0.0
+      }
+    },
+    {
+      "name": "OSC2",
+      "type": "osc",
+      "params": {
+        "wave": "pulse",
+        "key": "on",
+        "oct": 0,
+        "semi": 0,
+        "fine": -13.0,
+        "freq": 261.6256,
+        "level": 0.8,
+        "pw": 0.5,
+        "phase": 0.0
+      }
+    },
+    {
+      "name": "OSC3",
+      "type": "osc",
+      "params": {
+        "wave": "pulse",
+        "key": "on",
+        "oct": 0,
+        "semi": 0,
+        "fine": 13.0,
+        "freq": 261.6256,
+        "level": 0.8,
+        "pw": 0.5,
+        "phase": 0.0
+      }
+    },
+    {
+      "name": "OSC4",
+      "type": "osc",
+      "params": {
+        "wave": "saw",
+        "key": "on",
+        "oct": -1,
+        "semi": 0,
+        "fine": 4.0,
+        "freq": 261.6256,
+        "level": 0.8,
+        "pw": 0.5,
+        "phase": 0.0
+      }
+    },
+    {
+      "name": "MIX1",
+      "type": "mixer",
+      "params": {
+        "level1": 0.8,
+        "level2": 0.6,
+        "level3": 0.6,
+        "level4": 0.65
+      }
+    },
+    {
+      "name": "FILTER1",
+      "type": "filter",
+      "params": {
+        "type": "lowpass",
+        "cutoff": 3200.0,
+        "res": 0.25,
+        "drive": 0.3,
+        "keytrack": 0.5
+      }
+    },
+    {
+      "name": "LFO1",
+      "type": "lfo",
+      "params": {
+        "wave": "sine",
+        "rate": 0.6,
+        "depth": 1.0,
+        "polarity": "bipolar",
+        "reset": "free",
+        "phase": 0.0,
+        "delay": 0.0,
+        "fade": 0.0
+      }
+    },
+    {
+      "name": "LFO2",
+      "type": "lfo",
+      "params": {
+        "wave": "sine",
+        "rate": 5.5,
+        "depth": 1.0,
+        "polarity": "bipolar",
+        "reset": "key",
+        "phase": 0.0,
+        "delay": 0.35,
+        "fade": 0.4
+      }
+    },
+    {
+      "name": "ADSR1",
+      "type": "adsr",
+      "params": {
+        "attack": 0.003,
+        "decay": 0.4,
+        "sustain": 0.85,
+        "release": 0.18,
+        "velocity": 0.5
+      }
+    },
+    {
+      "name": "ADSR2",
+      "type": "adsr",
+      "params": {
+        "attack": 0.001,
+        "decay": 0.18,
+        "sustain": 0.0,
+        "release": 0.1,
+        "velocity": 0.0
+      }
+    },
+    {
+      "name": "AMP1",
+      "type": "amp",
+      "params": {
+        "gain": 0.8
+      }
+    },
+    {
+      "name": "DRIVE1",
+      "type": "drive",
+      "params": {
+        "drive": 0.3,
+        "tone": 7000.0,
+        "mix": 0.5,
+        "level": 0.8
+      }
+    },
+    {
+      "name": "CHORUS1",
+      "type": "chorus",
+      "params": {
+        "rate": 0.7,
+        "depth": 4.0,
+        "mix": 0.55,
+        "width": 1.0
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": "ADSR2.OUT",
+      "to": "OSC1.PITCH",
+      "amount": 0.6
+    },
+    {
+      "from": "LFO2.OUT",
+      "to": "OSC1.PITCH",
+      "amount": 0.006
+    },
+    {
+      "from": "ADSR2.OUT",
+      "to": "OSC2.PITCH",
+      "amount": 0.6
+    },
+    {
+      "from": "LFO2.OUT",
+      "to": "OSC2.PITCH",
+      "amount": 0.006
+    },
+    {
+      "from": "ADSR2.OUT",
+      "to": "OSC3.PITCH",
+      "amount": 0.6
+    },
+    {
+      "from": "LFO2.OUT",
+      "to": "OSC3.PITCH",
+      "amount": 0.006
+    },
+    {
+      "from": "ADSR2.OUT",
+      "to": "OSC4.PITCH",
+      "amount": 0.6
+    },
+    {
+      "from": "LFO2.OUT",
+      "to": "OSC4.PITCH",
+      "amount": 0.006
+    },
+    {
+      "from": "LFO1.OUT",
+      "to": "OSC2.PWM",
+      "amount": 0.5
+    },
+    {
+      "from": "LFO1.OUT",
+      "to": "OSC3.PWM",
+      "amount": -0.5
+    },
+    {
+      "from": "OSC1.OUT",
+      "to": "MIX1.IN1",
+      "amount": 1.0
+    },
+    {
+      "from": "OSC2.OUT",
+      "to": "MIX1.IN2",
+      "amount": 1.0
+    },
+    {
+      "from": "OSC3.OUT",
+      "to": "MIX1.IN3",
+      "amount": 1.0
+    },
+    {
+      "from": "OSC4.OUT",
+      "to": "MIX1.IN4",
+      "amount": 1.0
+    },
+    {
+      "from": "MIX1.OUT",
+      "to": "FILTER1.IN",
+      "amount": 1.0
+    },
+    {
+      "from": "ADSR2.OUT",
+      "to": "FILTER1.CUTOFF",
+      "amount": 0.2
+    },
+    {
+      "from": "FILTER1.OUT",
+      "to": "AMP1.IN",
+      "amount": 1.0
+    },
+    {
+      "from": "ADSR1.OUT",
+      "to": "AMP1.GAIN",
+      "amount": 1.0
+    },
+    {
+      "from": "AMP1.OUT",
+      "to": "DRIVE1.IN",
+      "amount": 1.0
+    },
+    {
+      "from": "DRIVE1.OUT",
+      "to": "CHORUS1.IN",
+      "amount": 1.0
+    },
+    {
+      "from": "CHORUS1.L",
+      "to": "MASTER.L",
+      "amount": 1.0
+    },
+    {
+      "from": "CHORUS1.R",
+      "to": "MASTER.R",
+      "amount": 1.0
+    }
+  ]
+}

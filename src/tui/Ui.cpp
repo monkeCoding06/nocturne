@@ -134,7 +134,7 @@ Element Ui::render() {
       break;
     case View::Settings:
       body = renderSettings(termW_, bodyH);
-      hints = "[↑↓] select  [←→] change  [Enter] apply / restart audio";
+      hints = "[↑↓] select  [←→] change  [Enter] on APPLY & SAVE writes config.json";
       break;
     case View::Help:
       body = renderHelp(termW_, bodyH);

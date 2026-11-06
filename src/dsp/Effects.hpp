@@ -26,6 +26,27 @@ class Delay {
   float dcX_ = 0.0f, dcY_ = 0.0f;
 };
 
+// Stereo chorus: three modulated taps per channel from one mono input, read from a
+// Hermite-interpolated delay line. Each tap has its own LFO phase and the right
+// channel runs a slightly different rate, so the image is wide and never static.
+class Chorus {
+ public:
+  void prepare(double sr);   // allocates; call off the audio thread
+  void reset();
+  // rateHz 0.05..5, depthMs 0..10 (modulation excursion), baseMs ~ centre delay.
+  // Returns the wet signal only (unity gain per tap sum).
+  void process(float in, float rateHz, float depthMs, float baseMs, float& wetL, float& wetR);
+
+ private:
+  float tap(float delaySamples) const;
+  static constexpr int kTaps = 3;
+  std::vector<float> buf_;
+  int mask_ = 0, write_ = 0;
+  float sr_ = 48000.0f;
+  double phaseL_[kTaps] = {0.0, 1.0 / 3.0, 2.0 / 3.0};
+  double phaseR_[kTaps] = {0.17, 0.17 + 1.0 / 3.0, 0.17 + 2.0 / 3.0};
+};
+
 // Tanh saturator running at 2x oversampling to keep harmonics from folding back.
 class Saturator {
  public:

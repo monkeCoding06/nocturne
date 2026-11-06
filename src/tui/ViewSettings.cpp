@@ -11,7 +11,8 @@ using namespace ftxui;
 namespace {
 constexpr int kBuffers[] = {64, 128, 256, 512, 1024, 2048};
 constexpr int kRates[] = {44100, 48000};
-constexpr int kItems = 11;
+constexpr int kItems = 13;
+constexpr int kApplyItem = 12;
 
 std::string fmt(const char* f, double v) {
   char b[48];
@@ -39,6 +40,8 @@ Element Ui::renderSettings(int width, int height) {
       {"PLAY", "NOTE MODE", c.noteMode == NoteMode::Latch ? "LATCH" : "TIMED"},
       {"PLAY", "NOTE LENGTH", fmt("%.2f s", s_.player().holdSeconds())},
       {"PLAY", "VELOCITY", fmt("%.2f", s_.player().velocity())},
+      {"PLAY", "KEY LAYOUT", keyLayoutName(c.keyLayout)},
+      {"", "", ""},
   };
   Elements rows;
   const char* last = "";
@@ -48,6 +51,13 @@ Element Ui::renderSettings(int width, int height) {
       rows.push_back(text(std::string(" ") + last) | bold | color(theme::purple));
     }
     const bool cur = i == setSel_;
+    if (i == kApplyItem) {
+      rows.push_back(text(" "));
+      Element btn = text("  [ APPLY & SAVE ]  ") | bold | color(theme::green);
+      rows.push_back(hbox({text(cur ? " ▸ " : "   "), cur ? btn | inverted : btn,
+                           text("  [Enter]") | color(theme::dim)}));
+      continue;
+    }
     Element row = hbox({text(cur ? " ▸ " : "   "), text(fixedText(items[i].label, 14)) | color(theme::dim),
                         text("◀ ") | color(theme::border), text(items[i].value) | color(theme::amber), text(" ▶") | color(theme::border)});
     if (cur) row = row | inverted;
@@ -85,6 +95,7 @@ Element Ui::renderSettings(int width, int height) {
 }
 
 void Ui::adjustSetting(int dir, bool fine) {
+  if (setSel_ == kApplyItem) return;
   AppConfig& c = s_.config();
   GlobalSettings g = s_.patch().global;
   auto cycle = [&](const int* arr, int n, int cur) {
@@ -123,12 +134,19 @@ void Ui::adjustSetting(int dir, bool fine) {
       s_.player().setVelocity(s_.player().velocity() + static_cast<float>(dir) * (fine ? 0.01f : 0.05f));
       c.velocity = s_.player().velocity();
       break;
+    case 11:
+      c.keyLayout = static_cast<KeyLayout>((static_cast<int>(c.keyLayout) + dir + kKeyLayoutCount) % kKeyLayoutCount);
+      s_.player().setLayout(c.keyLayout);
+      break;
     default: break;
   }
 }
 
 void Ui::activateSetting() {
-  if (setSel_ <= 2) {
+  if (setSel_ == kApplyItem) {
+    refreshDevices();
+    s_.applyAndSaveSettings();
+  } else if (setSel_ <= 2) {
     refreshDevices();
     s_.applyAudioSettings();
   } else {

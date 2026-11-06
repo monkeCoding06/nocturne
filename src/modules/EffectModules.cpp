@@ -99,6 +99,42 @@ class ReverbModule final : public Module {
   bool primed_ = false;
 };
 
+// --------------------------------------------------------------- CHORUS
+class ChorusModule final : public Module {
+ public:
+  enum Param { Rate, Depth, Mix, Width };
+  void prepare(double sr) override {
+    Module::prepare(sr);
+    ch_.prepare(sr);
+    mix_.setSampleRate(sr); mix_.setTime(0.02f);
+    depth_.setSampleRate(sr); depth_.setTime(0.05f);
+  }
+  void reset() override { ch_.reset(); primed_ = false; }
+  void process(const ModuleIO& io) override {
+    if (!primed_) { mix_.snap(param(Mix)); depth_.snap(param(Depth)); primed_ = true; }
+    mix_.setTarget(param(Mix));
+    depth_.setTarget(param(Depth));
+    const float width = param(Width);
+    for (int i = 0; i < io.n; ++i) {
+      const float x = io.in[0] ? io.in[0][i] : 0.0f;
+      float wl, wr;
+      ch_.process(x, param(Rate), depth_.next(), 12.0f, wl, wr);
+      // width blends the wet pair toward mono
+      const float mid = 0.5f * (wl + wr);
+      wl = mid + (wl - mid) * width;
+      wr = mid + (wr - mid) * width;
+      const float m = mix_.next();
+      io.out[0][i] = x * (1.0f - m) + wl * m;
+      io.out[1][i] = x * (1.0f - m) + wr * m;
+    }
+  }
+
+ private:
+  dsp::Chorus ch_;
+  dsp::Smoothed mix_, depth_;
+  bool primed_ = false;
+};
+
 // --------------------------------------------------------------- MASTER
 // Sums everything patched to IN / L / R, applies level and a soft limiter.
 class MasterModule final : public Module {
@@ -169,6 +205,20 @@ void registerEffectModules(std::vector<ModuleSpec>& out) {
         floatParam("mix", "MIX", 0.0f, 1.0f, 0.3f),
     };
     s.create = [] { return std::unique_ptr<Module>(new ReverbModule()); };
+    out.push_back(std::move(s));
+  }
+  {
+    ModuleSpec s;
+    s.type = "chorus"; s.label = "CHORUS"; s.prefix = "CHORUS"; s.scope = Scope::Global;
+    s.inputs = {audioIn("IN")};
+    s.outputs = {audioOut("L"), audioOut("R")};
+    s.params = {
+        floatParam("rate", "RATE", 0.05f, 5.0f, 0.6f, "Hz", ParamScale::Log),
+        floatParam("depth", "DEPTH", 0.0f, 8.0f, 3.0f, "ms"),
+        floatParam("mix", "MIX", 0.0f, 1.0f, 0.5f),
+        floatParam("width", "WIDTH", 0.0f, 1.0f, 1.0f),
+    };
+    s.create = [] { return std::unique_ptr<Module>(new ChorusModule()); };
     out.push_back(std::move(s));
   }
   {

@@ -69,6 +69,11 @@ Use Windows Terminal for best colors and Unicode. Options: `-DNOCTURNE_BUILD_TES
 
 ## Playing
 
+**Keyboard layout:** the piano keys sit at the same physical positions on every layout. Pick
+QWERTY, QWERTZ or AZERTY in Settings (F5) → KEY LAYOUT; the Play view relabels itself and the
+choice is saved. On AZERTY the accented digit-row sharps cannot be read, and `A` is a note, so
+use **F9** to add a module in the Rack.
+
 Terminals report key presses but **never releases**, so NOCTURNE offers two honest modes
 (toggle with **Tab** in the Play view or in Settings):
 
@@ -129,7 +134,18 @@ amount (−1…1; negative inverts).
 ## Factory patches
 
 INIT (sine), SUB (bass), GLASS (FM bell + delay/reverb), DRONE (evolving, LFO-modulated),
-NOISE (band-passed noise), LEAD (mono, glide). Each is a real graph, not a renamed copy.
+NOISE (band-passed noise), LEAD (mono, glide), HOOVER (rave stack with pitch swoop and PWM),
+EURO HOOVER (`presets/euro_hoover.json`: saw + two PWM pulses + sub saw, `ADSR2 → OSC.PITCH` dive,
+LFO PWM, delayed LFO vibrato, resonant low-pass, light drive, stereo CHORUS; best at octaves 1–3).
+Each is a real graph, not a renamed copy. Open it in F4 (Patches) and play in F3.
+
+### Deep bass and LFO
+* Keyboard octave runs **−1..8** (`[` `]` or ←/→ in Play; shown as `OCT n` in the status bar). Octave −1 puts the
+  lower row on MIDI notes 0–11 (C = 8.18 Hz). Oscillator phase is double precision, so very low pitches stay exact.
+* LFO: SINE/TRI/SQUARE/SAW/RSAW/S&H, 0.01–100 Hz, bipolar/unipolar, PHASE offset, DELAY and FADE-IN (restarted per note),
+  FREE/KEY reset, RATE CV input. Depth/polarity of the target comes from the connection amount. No tempo sync (no tempo system).
+* CHORUS module: three Hermite-interpolated modulated taps per side, RATE/DEPTH/MIX/WIDTH, stereo outputs L and R.
+* `cmake --build build && build/nocturne_tests` also renders reference WAVs into `wav/` (EURO HOOVER C2/C3/riff, sub bass, pitch sweep).
 
 ## Files
 

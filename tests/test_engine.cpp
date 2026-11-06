@@ -142,7 +142,7 @@ TEST(factory_presets_make_real_sound) {
     CHECK(e.activeVoices() == 0);  // every preset ends cleanly
     ++index;
   }
-  CHECK(index == 6);
+  CHECK(index == 8);
 }
 
 TEST(factory_presets_sound_different) {
@@ -296,6 +296,11 @@ TEST(key_layout_maps_notes) {
   CHECK(keyToNote('Z')->accent);
   CHECK(!keyToNote('?').has_value());
   CHECK(!keyToNote('a').has_value());  // letters kept free for commands
+  CHECK(keyToNote('y', KeyLayout::Qwertz)->semitone == 0);
+  CHECK(keyToNote('z', KeyLayout::Qwertz)->semitone == 12 + 9);
+  CHECK(keyToNote('w', KeyLayout::Azerty)->semitone == 0);
+  CHECK(keyToNote('a', KeyLayout::Azerty)->semitone == 12);
+  CHECK(!keyToNote('\x01', KeyLayout::Azerty).has_value());
 }
 
 TEST(note_player_latch_and_timed_modes) {
@@ -308,7 +313,8 @@ TEST(note_player_latch_and_timed_modes) {
   CHECK(render(e, 4800).rms > 0.05);
   render(e, 48000);
   CHECK(render(e, 2400).rms > 0.05);  // latched notes sustain until toggled off
-  pl.handleChar('z');
+  const auto t0 = NotePlayer::Clock::now();
+  pl.handleChar('z', t0 + std::chrono::seconds(2));
   render(e, static_cast<int>(kSr * 1.5));
   CHECK(e.activeVoices() == 0);
 
@@ -319,4 +325,30 @@ TEST(note_player_latch_and_timed_modes) {
   render(e, static_cast<int>(kSr * 2.0));
   CHECK(e.activeVoices() == 0);
   CHECK(!pl.handleChar('!'));
+}
+
+TEST(note_player_held_key_is_one_note) {
+  using ms = std::chrono::milliseconds;
+  Engine e(kSr);
+  load(e, factoryPresets().front().build());
+  NotePlayer pl(e);
+  pl.setOctave(4);
+  pl.setHoldSeconds(0.3f);
+  const auto t0 = NotePlayer::Clock::now();
+  // press, OS initial delay (500 ms), then 30 ms auto-repeat
+  pl.handleChar('z', t0);
+  render(e, 100);
+  CHECK(e.activeVoices() == 1);
+  pl.handleChar('z', t0 + ms(500));
+  for (int i = 1; i <= 20; ++i) pl.handleChar('z', t0 + ms(500 + 30 * i));
+  render(e, 100);
+  CHECK(e.activeVoices() == 1);  // still one voice: the repeat never retriggered
+
+  // latch: auto-repeat of a held key must not toggle the note off
+  pl.setMode(NoteMode::Latch);
+  pl.handleChar('x', t0 + ms(2000));
+  pl.handleChar('x', t0 + ms(2500));
+  for (int i = 1; i <= 10; ++i) pl.handleChar('x', t0 + ms(2500 + 30 * i));
+  render(e, 4800);
+  CHECK(pl.isSounding(12 * 5 + 2));
 }

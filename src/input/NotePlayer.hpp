@@ -18,7 +18,15 @@ struct KeyNote {
   int semitone = 0;
   bool accent = false;
 };
-std::optional<KeyNote> keyToNote(char c);
+
+// The piano keys sit at the same physical positions on every layout; only the
+// characters the terminal reports differ.
+enum class KeyLayout { Qwerty, Qwertz, Azerty };
+constexpr int kKeyLayoutCount = 3;
+const char* keyLayoutName(KeyLayout l);
+// 17 characters each, semitone offsets 0..16 from the row's C. '\x01' = no typable key.
+const char* keyRow(KeyLayout l, bool upper);
+std::optional<KeyNote> keyToNote(char c, KeyLayout layout = KeyLayout::Qwerty);
 
 enum class NoteMode {
   Timed,  // note sounds for `hold` seconds after the last key event (key repeat extends it)
@@ -34,8 +42,10 @@ class NotePlayer {
 
   explicit NotePlayer(Engine& engine) : engine_(engine) { reset(); }
 
+  KeyLayout layout() const { return layout_; }
+  void setLayout(KeyLayout l) { allOff(); layout_ = l; }
   int octave() const { return octave_; }
-  void setOctave(int o) { octave_ = o < 0 ? 0 : (o > 8 ? 8 : o); }
+  void setOctave(int o) { octave_ = o < -1 ? -1 : (o > 8 ? 8 : o); }
   float velocity() const { return velocity_; }
   void setVelocity(float v) { velocity_ = v < 0.05f ? 0.05f : (v > 1.0f ? 1.0f : v); }
   NoteMode mode() const { return mode_; }
@@ -54,6 +64,7 @@ class NotePlayer {
   void reset();
 
   Engine& engine_;
+  KeyLayout layout_ = KeyLayout::Qwerty;
   int octave_ = 4;
   float velocity_ = 0.8f;
   NoteMode mode_ = NoteMode::Timed;
@@ -61,6 +72,7 @@ class NotePlayer {
   std::array<Clock::time_point, 128> lastEvent_{};
   std::array<Clock::time_point, 128> offAt_{};
   std::array<bool, 128> on_{};
+  std::array<bool, 128> repeating_{};
 };
 
 }  // namespace nocturne

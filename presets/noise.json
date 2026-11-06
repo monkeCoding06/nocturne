@@ -76,7 +76,10 @@
         "rate": 0.4,
         "depth": 0.5,
         "polarity": "bipolar",
-        "reset": "free"
+        "reset": "free",
+        "phase": 0.0,
+        "delay": 0.0,
+        "fade": 0.0
       }
     },
     {

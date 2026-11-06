@@ -1,0 +1,244 @@
+{
+  "format": "nocturne-patch",
+  "version": 1,
+  "meta": {
+    "name": "HOOVER",
+    "author": "NOCTURNE",
+    "description": "Rave hoover: detuned saw/pulse stack, pitch dive, PWM, resonant filter, drive"
+  },
+  "global": {
+    "mode": "poly",
+    "voices": 6,
+    "glide": 0.0,
+    "legato": true
+  },
+  "modules": [
+    {
+      "name": "MASTER",
+      "type": "master",
+      "params": {
+        "level": 0.7
+      }
+    },
+    {
+      "name": "OSC1",
+      "type": "osc",
+      "params": {
+        "wave": "saw",
+        "key": "on",
+        "oct": 0,
+        "semi": 0,
+        "fine": -22.0,
+        "freq": 261.6256,
+        "level": 0.8,
+        "pw": 0.5,
+        "phase": 0.0
+      }
+    },
+    {
+      "name": "OSC2",
+      "type": "osc",
+      "params": {
+        "wave": "saw",
+        "key": "on",
+        "oct": 0,
+        "semi": 0,
+        "fine": 24.0,
+        "freq": 261.6256,
+        "level": 0.8,
+        "pw": 0.5,
+        "phase": 0.0
+      }
+    },
+    {
+      "name": "OSC3",
+      "type": "osc",
+      "params": {
+        "wave": "pulse",
+        "key": "on",
+        "oct": -1,
+        "semi": 0,
+        "fine": 0.0,
+        "freq": 261.6256,
+        "level": 0.8,
+        "pw": 0.5,
+        "phase": 0.0
+      }
+    },
+    {
+      "name": "MIX1",
+      "type": "mixer",
+      "params": {
+        "level1": 0.6,
+        "level2": 0.6,
+        "level3": 0.6,
+        "level4": 0.7
+      }
+    },
+    {
+      "name": "FILTER1",
+      "type": "filter",
+      "params": {
+        "type": "lowpass",
+        "cutoff": 1800.0,
+        "res": 0.55,
+        "drive": 0.4,
+        "keytrack": 0.6
+      }
+    },
+    {
+      "name": "LFO1",
+      "type": "lfo",
+      "params": {
+        "wave": "tri",
+        "rate": 0.9,
+        "depth": 1.0,
+        "polarity": "bipolar",
+        "reset": "free",
+        "phase": 0.0,
+        "delay": 0.0,
+        "fade": 0.0
+      }
+    },
+    {
+      "name": "ADSR1",
+      "type": "adsr",
+      "params": {
+        "attack": 0.01,
+        "decay": 0.4,
+        "sustain": 0.85,
+        "release": 0.35,
+        "velocity": 0.5
+      }
+    },
+    {
+      "name": "ADSR2",
+      "type": "adsr",
+      "params": {
+        "attack": 0.001,
+        "decay": 0.35,
+        "sustain": 0.0,
+        "release": 0.2,
+        "velocity": 0.5
+      }
+    },
+    {
+      "name": "AMP1",
+      "type": "amp",
+      "params": {
+        "gain": 0.8
+      }
+    },
+    {
+      "name": "DRIVE1",
+      "type": "drive",
+      "params": {
+        "drive": 0.55,
+        "tone": 6000.0,
+        "mix": 0.7,
+        "level": 0.8
+      }
+    },
+    {
+      "name": "DELAY1",
+      "type": "delay",
+      "params": {
+        "time": 280.0,
+        "feedback": 0.3,
+        "damp": 5000.0,
+        "mix": 0.18
+      }
+    },
+    {
+      "name": "REVERB1",
+      "type": "reverb",
+      "params": {
+        "size": 0.6,
+        "damp": 0.5,
+        "mix": 0.2
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": "ADSR2.OUT",
+      "to": "OSC1.PITCH",
+      "amount": 0.45
+    },
+    {
+      "from": "ADSR2.OUT",
+      "to": "OSC2.PITCH",
+      "amount": 0.45
+    },
+    {
+      "from": "ADSR2.OUT",
+      "to": "OSC3.PITCH",
+      "amount": 0.45
+    },
+    {
+      "from": "LFO1.OUT",
+      "to": "OSC3.PWM",
+      "amount": 0.85
+    },
+    {
+      "from": "OSC1.OUT",
+      "to": "MIX1.IN1",
+      "amount": 1.0
+    },
+    {
+      "from": "OSC2.OUT",
+      "to": "MIX1.IN2",
+      "amount": 1.0
+    },
+    {
+      "from": "OSC3.OUT",
+      "to": "MIX1.IN3",
+      "amount": 1.0
+    },
+    {
+      "from": "MIX1.OUT",
+      "to": "FILTER1.IN",
+      "amount": 1.0
+    },
+    {
+      "from": "ADSR2.OUT",
+      "to": "FILTER1.CUTOFF",
+      "amount": 0.3
+    },
+    {
+      "from": "FILTER1.OUT",
+      "to": "AMP1.IN",
+      "amount": 1.0
+    },
+    {
+      "from": "ADSR1.OUT",
+      "to": "AMP1.GAIN",
+      "amount": 1.0
+    },
+    {
+      "from": "AMP1.OUT",
+      "to": "DRIVE1.IN",
+      "amount": 1.0
+    },
+    {
+      "from": "DRIVE1.OUT",
+      "to": "DELAY1.IN",
+      "amount": 1.0
+    },
+    {
+      "from": "DELAY1.OUT",
+      "to": "REVERB1.IN",
+      "amount": 1.0
+    },
+    {
+      "from": "REVERB1.L",
+      "to": "MASTER.L",
+      "amount": 1.0
+    },
+    {
+      "from": "REVERB1.R",
+      "to": "MASTER.R",
+      "amount": 1.0
+    }
+  ]
+}

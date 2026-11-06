@@ -36,6 +36,7 @@ void Session::startup() {
   player_.setVelocity(cfg_.velocity);
   player_.setHoldSeconds(cfg_.holdSeconds);
   player_.setMode(cfg_.noteMode);
+  player_.setLayout(cfg_.keyLayout);
   engine_.setVolume(cfg_.volume);
   engine_.flushQueue();
 
@@ -284,6 +285,13 @@ void Session::setVolume(float v) {
   engine_.setVolume(cfg_.volume);
 }
 
+void Session::applyAndSaveSettings() {
+  const bool ok = applyAudioSettings();
+  saveConfig();
+  if (ok) setStatus("Settings applied and saved - " + status_);
+  else setStatus("Settings saved, but audio failed: " + device_.lastError(), true);
+}
+
 // ------------------------------------------------------------ config
 void Session::loadConfig() {
   std::ifstream f(configDirectory() / "config.json");
@@ -296,8 +304,12 @@ void Session::loadConfig() {
     cfg_.volume = std::min(std::max(j.value("volume", cfg_.volume), 0.0f), 1.0f);
     cfg_.noteMode = j.value("noteMode", std::string("timed")) == "latch" ? NoteMode::Latch : NoteMode::Timed;
     cfg_.holdSeconds = std::min(std::max(j.value("holdSeconds", cfg_.holdSeconds), 0.05f), 8.0f);
+    {
+      const std::string kl = j.value("keyLayout", std::string("qwerty"));
+      cfg_.keyLayout = kl == "qwertz" ? KeyLayout::Qwertz : (kl == "azerty" ? KeyLayout::Azerty : KeyLayout::Qwerty);
+    }
     cfg_.velocity = std::min(std::max(j.value("velocity", cfg_.velocity), 0.05f), 1.0f);
-    cfg_.octave = std::min(std::max(j.value("octave", cfg_.octave), 0), 8);
+    cfg_.octave = std::min(std::max(j.value("octave", cfg_.octave), -1), 8);
     cfg_.lastPatch = j.value("lastPatch", cfg_.lastPatch);
   } catch (...) {
     // A damaged config file must never prevent startup; defaults apply.
@@ -314,6 +326,7 @@ void Session::saveConfig() const {
   j["volume"] = cfg_.volume;
   j["noteMode"] = cfg_.noteMode == NoteMode::Latch ? "latch" : "timed";
   j["holdSeconds"] = player_.holdSeconds();
+  j["keyLayout"] = cfg_.keyLayout == KeyLayout::Qwertz ? "qwertz" : (cfg_.keyLayout == KeyLayout::Azerty ? "azerty" : "qwerty");
   j["velocity"] = player_.velocity();
   j["octave"] = player_.octave();
   j["lastPatch"] = cfg_.lastPatch;

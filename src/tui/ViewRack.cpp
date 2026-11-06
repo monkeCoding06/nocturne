@@ -154,6 +154,7 @@ bool Ui::handleRack(const Event& e) {
     if ((c == "=" || c == "+") && pc > 0) { s_.adjustParam(selModule_, selParam_, +1, true); return true; }
     if (c == "a" || c == "A") { openAddModule(); return true; }
   }
+  if (e == Event::F9) { openAddModule(); return true; }
   return false;
 }
 

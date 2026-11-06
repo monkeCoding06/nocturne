@@ -18,12 +18,11 @@ constexpr std::array<int, 10> kBlackAfter = {1, 3, -1, 6, 8, 10, -1, 13, 15, -1}
 constexpr const char* kWhiteNames[10] = {"C", "D", "E", "F", "G", "A", "B", "C", "D", "E"};
 constexpr int kCell = 6;
 
-char cap(const char* row, int i) { return row[i]; }
 }  // namespace
 
 Element Ui::piano(int baseOctave, bool upperRow) {
-  const char* whiteCaps = upperRow ? "QWERTYUIOP" : "ZXCVBNM,./";
-  const char* blackCaps = upperRow ? "23?567??9?" : "sd?ghj?l;?";
+  const char* whiteRow = keyRow(s_.player().layout(), upperRow);
+  const char* blackRow = whiteRow;
   const int baseNote = 12 * (baseOctave + 1);
   NotePlayer& pl = s_.player();
   const auto now = NotePlayer::Clock::now();
@@ -49,17 +48,24 @@ Element Ui::piano(int baseOctave, bool upperRow) {
         const bool on = pl.isSounding(note, now);
         bg = on ? hot : blackBg;
         fg = on ? Color::RGB(255, 255, 255) : Color::RGB(200, 200, 215);
-        if (r == 0 && c == kCell * blackIdx + 5) ch = std::string(1, cap(blackCaps, blackIdx) == '?' ? ' ' : static_cast<char>(std::toupper(blackCaps[blackIdx])));
+        if (r == 0 && c == kCell * blackIdx + 5) {
+          const char b = blackRow[kBlackAfter[static_cast<size_t>(blackIdx)]];
+          ch = b == '\x01' ? " " : std::string(1, static_cast<char>(std::toupper(b)));
+        }
       } else if (k == kCell - 1) {
         bg = gapBg;
       } else {
         const int note = baseNote + kWhite[static_cast<size_t>(i)];
         const bool on = pl.isSounding(note, now);
         if (on) { bg = hot; fg = Color::RGB(255, 255, 255); }
-        if (r == 2 && k == 2) ch = std::string(1, whiteCaps[i]);
+        if (r == 2 && k == 2) {
+          const char w = whiteRow[kWhite[static_cast<size_t>(i)]];
+          ch = w == '\x01' ? " " : std::string(1, static_cast<char>(std::toupper(w)));
+        }
         if (r == 3) {
           const std::string name = kWhiteNames[i] + (i == 0 || i == 7 ? std::to_string(baseOctave + (i == 7 ? 1 : 0)) : std::string());
-          if (name.size() == 2 && k == 1) ch = name.substr(0, 1);
+          if (name.size() == 3 && k >= 1 && k <= 3) ch = name.substr(static_cast<size_t>(k - 1), 1);
+          else if (name.size() == 2 && k == 1) ch = name.substr(0, 1);
           else if (name.size() == 2 && k == 2) ch = name.substr(1, 1);
           else if (name.size() == 1 && k == 2) ch = name;
         }
@@ -74,8 +80,8 @@ Element Ui::piano(int baseOctave, bool upperRow) {
 Element Ui::renderPlay(int width, int height) {
   NotePlayer& pl = s_.player();
   const int oct = pl.octave();
-  Element upper = vbox({text(" OCTAVE " + std::to_string(oct + 1) + "   Q-row · digit-row sharps") | color(theme::dim), piano(oct + 1, true)});
-  Element lower = vbox({text(" OCTAVE " + std::to_string(oct) + "   Z-row · S D G H J L sharps") | color(theme::dim), piano(oct, false)});
+  Element upper = vbox({text(" OCTAVE " + std::to_string(oct + 1) + "   upper row (" + keyRow(s_.player().layout(), true)[0] + "…) · digit-row sharps") | color(theme::dim), piano(oct + 1, true)});
+  Element lower = vbox({text(" OCTAVE " + std::to_string(oct) + "   lower row (" + keyRow(s_.player().layout(), false)[0] + "…) · home-row sharps") | color(theme::dim), piano(oct, false)});
 
   // --- oscilloscope of the real output
   const int scopeW = std::max(20, width - 44);

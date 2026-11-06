@@ -17,6 +17,7 @@ struct AppConfig {
   std::string deviceName;  // empty = system default
   float volume = 0.8f;
   NoteMode noteMode = NoteMode::Timed;
+  KeyLayout keyLayout = KeyLayout::Qwerty;
   float holdSeconds = 0.5f;
   float velocity = 0.8f;
   int octave = 4;
@@ -82,6 +83,8 @@ class Session {
   // ---- audio ----
   bool applyAudioSettings();  // (re)starts the device with cfg_
   void setVolume(float v);
+  // Restarts audio with the current settings and writes config.json.
+  void applyAndSaveSettings();
   std::vector<DeviceInfo> devices() { return device_.listDevices(); }
 
  private:
