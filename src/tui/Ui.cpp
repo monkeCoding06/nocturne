@@ -60,9 +60,13 @@ Element Ui::header() {
     row.push_back(on ? (text(label) | bold | inverted | color(theme::purple)) : (text(label) | color(theme::dim)));
   }
   row.push_back(filler());
-  const std::string name = s_.patch().meta.name + (s_.dirty() ? " *" : "");
+  const std::string name = s_.patch().meta.name;
   row.push_back(text("PATCH: ") | color(theme::dim));
-  row.push_back(text(name + " ") | bold | color(theme::amber));
+  row.push_back(text(name) | bold | color(theme::amber));
+  row.push_back(text(std::string(" [") + s_.identity().kindName() + "]") | color(s_.identity().kind == PatchIdentity::Kind::Factory ? theme::purple : theme::cyan));
+  if (s_.dirty()) row.push_back(text(" MODIFIED") | bold | color(theme::red));
+  if (s_.lastLoad().count(Diagnostic::Severity::Warning) > 0) row.push_back(text(" !") | bold | color(theme::red));
+  row.push_back(text(" "));
   return hbox(std::move(row));
 }
 
@@ -71,9 +75,10 @@ Element Ui::statusStrip() {
   const float pl = e.peakLeft(), pr = e.peakRight();
   char cpu[16];
   std::snprintf(cpu, sizeof cpu, "%3.0f%%", e.cpuLoad() * 100.0f);
-  const bool latch = s_.player().mode() == NoteMode::Latch;
+  const NoteMode nm = s_.player().mode();
   char hold[24];
-  std::snprintf(hold, sizeof hold, "%s %.1fs", latch ? "LATCH" : "TIMED", s_.player().holdSeconds());
+  if (nm == NoteMode::Live) std::snprintf(hold, sizeof hold, "LIVE");
+  else std::snprintf(hold, sizeof hold, "%s %.1fs", noteModeName(nm), s_.player().holdSeconds());
   const int total = s_.patch().global.mode == VoiceMode::Mono ? 1 : s_.patch().global.voices;
   const bool audioOk = s_.device().running();
   return hbox({
@@ -126,11 +131,11 @@ Element Ui::render() {
       break;
     case View::Play:
       body = renderPlay(termW_, bodyH);
-      hints = "Z-row & Q-row = piano   [ ] octave   [Space] panic   [Esc] release all   [Tab] timed/latch   [- =] note length";
+      hints = "Z-row & Q-row = piano   [ ] octave   [Space] panic   [Esc] release all   [Tab] timed/latch/live   [- =] note length";
       break;
     case View::Patches:
       body = renderPatches(termW_, bodyH);
-      hints = "[↑↓] select  [Enter] load  [F7] save current  [F8] new  [Del] delete user patch";
+      hints = "[↑↓] select  [Enter] load  [Tab] preview/diagnostics/JSON  [Ctrl+E] export loaded JSON  [F7] save  [F8] new  [Del] delete user patch";
       break;
     case View::Settings:
       body = renderSettings(termW_, bodyH);
@@ -348,9 +353,9 @@ bool Ui::onEvent(const Event& e) {
       if (e == Event::ArrowLeft) { s_.player().setOctave(s_.player().octave() - 1); return true; }
       if (e == Event::ArrowRight) { s_.player().setOctave(s_.player().octave() + 1); return true; }
       if (e == Event::Tab) {
-        const NoteMode m = s_.player().mode() == NoteMode::Timed ? NoteMode::Latch : NoteMode::Timed;
-        s_.player().setMode(m);
-        s_.config().noteMode = m;
+        const bool liveSkipped = s_.player().mode() == NoteMode::Latch && !s_.player().liveAvailable();
+        s_.config().noteMode = s_.player().cycleMode();
+        if (liveSkipped) s_.setStatus("LIVE unavailable: " + s_.player().liveDescription(), true);
         return true;
       }
       if (e.is_character() && e.character() == "-") { s_.player().setHoldSeconds(s_.player().holdSeconds() - 0.1f); return true; }

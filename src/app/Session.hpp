@@ -8,6 +8,7 @@
 #include "audio/Engine.hpp"
 #include "input/NotePlayer.hpp"
 #include "patch/Patch.hpp"
+#include "patch/PatchIO.hpp"
 
 namespace nocturne {
 
@@ -27,9 +28,19 @@ struct AppConfig {
 struct PatchEntry {
   std::string name;
   bool factory = false;
-  int factoryIndex = -1;
+  std::string id;              // factory preset id (file stem of presets/<id>.json)
+  bool shadowsFactory = false; // user file named like a factory preset (never replaces it)
   std::filesystem::path path;
-  std::string key() const { return factory ? "factory:" + name : "user:" + path.filename().string(); }
+  std::string key() const { return factory ? "factory:" + id : "user:" + path.filename().string(); }
+};
+
+// Where the patch currently in the rack came from.
+struct PatchIdentity {
+  enum class Kind { New, Factory, User };
+  Kind kind = Kind::New;
+  std::string id;      // factory id or user file name
+  std::string source;  // "embedded:euro_hoover (presets/euro_hoover.json)" or the file path
+  const char* kindName() const { return kind == Kind::Factory ? "FACTORY" : (kind == Kind::User ? "USER" : "NEW"); }
 };
 
 std::filesystem::path configDirectory();
@@ -80,6 +91,19 @@ class Session {
   bool deleteEntry(const PatchEntry& e);
   std::filesystem::path patchDirectory() const;
 
+  // ---- identity & diagnostics ----
+  const PatchIdentity& identity() const { return identity_; }
+  // Diagnostics of the most recent load attempt (also when it failed and the rack was kept).
+  const PatchLoadResult& lastLoad() const { return lastLoad_; }
+  const std::string& lastLoadLabel() const { return lastLoadLabel_; }
+  // Differences between the embedded factory presets and an on-disk presets/ dir (empty = none/identical).
+  const std::vector<std::string>& presetMismatches() const { return presetMismatches_; }
+  const std::string& presetDirectory() const { return presetDir_; }
+  // The exact JSON of the patch in the rack (including unsaved edits).
+  std::string currentJson() const { return patchToString(patch_); }
+  // Writes currentJson() to <config>/exports/<name>.json; returns the error or empty and sets *written.
+  std::string exportCurrent(std::filesystem::path* written);
+
   // ---- audio ----
   bool applyAudioSettings();  // (re)starts the device with cfg_
   void setVolume(float v);
@@ -92,13 +116,19 @@ class Session {
   void post(const EngineEvent& e);
   void loadConfig();
   void saveConfig() const;
-  void adopt(Patch p, const std::string& label);
+  bool adopt(Patch p, const std::string& label);
+  void recordLoad(PatchLoadResult r, const std::string& label);
 
   Engine engine_;
   AudioDevice device_;
   NotePlayer player_;
   Patch patch_;
   AppConfig cfg_;
+  PatchIdentity identity_;
+  PatchLoadResult lastLoad_;
+  std::string lastLoadLabel_;
+  std::vector<std::string> presetMismatches_;
+  std::string presetDir_;
   bool dirty_ = false;
   bool resync_ = false;
   std::string status_;

@@ -110,17 +110,30 @@ Element Ui::renderPlay(int width, int height) {
   char hb[32];
   std::snprintf(hb, sizeof hb, "%.1f s  (- =)", pl.holdSeconds());
   const std::string holdText = hb;
-  const bool latch = pl.mode() == NoteMode::Latch;
-  Element info = window(text(" PERFORMANCE ") | color(theme::dim),
-                        vbox({hbox({text(" OCTAVE   ") | color(theme::dim), text(std::to_string(oct) + "  [ ] ← →") | color(theme::amber)}),
-                              hbox({text(" VELOCITY ") | color(theme::dim), text(std::string(buf) + "  ↑ ↓ (CAPS = 1.0)") | color(theme::amber)}),
-                              hbox({text(" NOTES    ") | color(theme::dim), text(latch ? "LATCH  [Tab]" : "TIMED  [Tab]") | color(theme::amber)}),
-                              hbox({text(" LENGTH   ") | color(theme::dim),
-                                    text(latch ? std::string("until pressed again") : holdText) | color(theme::amber)}),
-                              hbox({text(" VOICES   ") | color(theme::dim),
-                                    text(std::to_string(s_.engine().activeVoices()) + " active") | color(theme::cyan)}),
-                              text(" Terminals send no key-up events,") | color(theme::dim),
-                              text(" so notes are timed or latched.") | color(theme::dim)})) |
+  const NoteMode mode = pl.mode();
+  const bool live = mode == NoteMode::Live;
+  const bool liveOk = pl.liveAvailable();
+  std::string held;
+  for (int n : pl.heldNotes()) held += (held.empty() ? "" : " ") + noteName(n);
+  if (held.empty()) held = "-";
+  std::string lengthText = mode == NoteMode::Latch ? "until pressed again" : (live ? "while key is held" : holdText);
+  Elements infoRows = {
+      hbox({text(" OCTAVE   ") | color(theme::dim), text(std::to_string(oct) + "  [ ] ← →") | color(theme::amber)}),
+      hbox({text(" VELOCITY ") | color(theme::dim), text(std::string(buf) + "  ↑ ↓ (CAPS = 1.0)") | color(theme::amber)}),
+      hbox({text(" NOTES    ") | color(theme::dim), text(std::string(noteModeName(mode)) + "  [Tab]") | color(theme::amber)}),
+      hbox({text(" LENGTH   ") | color(theme::dim), text(lengthText) | color(theme::amber)}),
+      hbox({text(" HELD     ") | color(theme::dim), text(live ? held : "-") | color(theme::cyan)}),
+      hbox({text(" VOICES   ") | color(theme::dim), text(std::to_string(s_.engine().activeVoices()) + " active") | color(theme::cyan)}),
+  };
+  if (live) {
+    infoRows.push_back(text(" LIVE: true key up/down (focus needed)") | color(theme::dim));
+  } else if (liveOk) {
+    infoRows.push_back(text(" LIVE available: [Tab] cycles to it") | color(theme::dim));
+  } else {
+    infoRows.push_back(text(" LIVE UNAVAILABLE (no key-up events)") | color(theme::red));
+    infoRows.push_back(text(" Timed/latch only in this terminal.") | color(theme::dim));
+  }
+  Element info = window(text(" PERFORMANCE ") | color(theme::dim), vbox(std::move(infoRows))) |
                  color(theme::border) | size(WIDTH, EQUAL, 42);
   return vbox({hbox({filler(), vbox({upper, lower}), filler()}), hbox({scope | flex, info})});
 }

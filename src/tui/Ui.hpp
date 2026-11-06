@@ -38,6 +38,7 @@ class Ui {
   ftxui::Element render();
   bool onEvent(const ftxui::Event& e);
   bool wantsQuit() const { return quit_; }
+  bool textEntryActive() const { return modal_ != ModalKind::None; }  // typed keys are text, not notes
 
  private:
   // ---- frame ----
@@ -93,6 +94,9 @@ class Ui {
   std::string previewKey_;
   Patch preview_;
   bool previewOk_ = false;
+  PatchLoadResult previewLoad_;
+  int patchPanel_ = 0;     // right side of F4: 0 preview, 1 diagnostics, 2 loaded JSON
+  int panelScroll_ = 0;
   // settings
   int setSel_ = 0;
   std::vector<DeviceInfo> devices_;

@@ -36,15 +36,42 @@ void Session::startup() {
   player_.setVelocity(cfg_.velocity);
   player_.setHoldSeconds(cfg_.holdSeconds);
   player_.setMode(cfg_.noteMode);
+  cfg_.noteMode = player_.mode();  // Live falls back to the previous mode when unavailable
   player_.setLayout(cfg_.keyLayout);
   engine_.setVolume(cfg_.volume);
   engine_.flushQueue();
 
+  presetDir_.clear();
+  presetMismatches_.clear();
+  const PresetDiskCheck disk = checkPresetsOnDisk();
+  if (!disk.dir.empty()) {
+    presetDir_ = disk.dir.string();
+    presetMismatches_ = disk.mismatches;
+  }
+
   bool loaded = false;
-  for (const auto& e : listPatches())
-    if (e.key() == cfg_.lastPatch) { loaded = loadEntry(e); break; }
-  if (!loaded) adopt(factoryPresets().front().build(), "INIT");
+  for (const auto& e : listPatches()) {
+    // Older configs stored the display name ("factory:EURO HOOVER") instead of the id.
+    if (e.key() == cfg_.lastPatch || (e.factory && "factory:" + e.name == cfg_.lastPatch)) {
+      loaded = loadEntry(e);
+      break;
+    }
+  }
+  if (!loaded) {
+    const std::string why = cfg_.lastPatch.empty() ? std::string() : "could not restore '" + cfg_.lastPatch + "': ";
+    const auto& list = factoryPresets();
+    if (!list.empty()) {
+      const bool ok = loadEntry(listPatches().front());
+      if (ok && !why.empty()) setStatus(why + "started with " + list.front().name, true);
+    } else {
+      PatchLoadResult r;
+      r.add(Diagnostic::Severity::Error, "missing-asset", "factory presets", "no factory presets are embedded in this build");
+      recordLoad(std::move(r), "factory presets");
+    }
+  }
   applyAudioSettings();
+  if (!presetMismatches_.empty())
+    setStatus("Preset files in " + presetDir_ + " differ from the built-in ones (embedded wins) - see F4", true);
 }
 
 void Session::shutdown() {
@@ -78,13 +105,27 @@ void Session::rebuild() {
   if (!device_.running()) engine_.flushQueue();
 }
 
-void Session::adopt(Patch p, const std::string& label) {
+bool Session::adopt(Patch p, const std::string& label) {
   normalizePatch(p);
+  // Build the rack first: if that fails, the current patch and rack stay untouched.
+  std::string err;
+  auto rack = Rack::build(p, engine_.sampleRate(), &err);
+  if (!rack) {
+    setStatus("Patch not loaded (current patch kept): " + err, true);
+    return false;
+  }
   patch_ = std::move(p);
   dirty_ = false;
   engine_.allNotesOff();
-  rebuild();
+  if (!engine_.postSwap(std::move(rack))) resync_ = true;
+  if (!device_.running()) engine_.flushQueue();
   if (!label.empty()) setStatus("Loaded " + label);
+  return true;
+}
+
+void Session::recordLoad(PatchLoadResult r, const std::string& label) {
+  lastLoad_ = std::move(r);
+  lastLoadLabel_ = label;
 }
 
 // ------------------------------------------------------------ editing
@@ -190,12 +231,11 @@ void Session::setPatchName(const std::string& name) {
 // ------------------------------------------------------------ patches
 std::vector<PatchEntry> Session::listPatches() const {
   std::vector<PatchEntry> out;
-  int i = 0;
   for (const auto& f : factoryPresets()) {
     PatchEntry e;
     e.name = f.name;
     e.factory = true;
-    e.factoryIndex = i++;
+    e.id = f.id;
     out.push_back(e);
   }
   std::error_code ec;
@@ -205,6 +245,9 @@ std::vector<PatchEntry> Session::listPatches() const {
     PatchEntry e;
     e.name = de.path().stem().string();
     e.path = de.path();
+    const std::string stem = sanitizePatchFileName(e.name);
+    for (const auto& f : factoryPresets())
+      if (stem == f.id || stem == sanitizePatchFileName(f.name)) e.shadowsFactory = true;
     user.push_back(e);
   }
   std::sort(user.begin(), user.end(), [](const PatchEntry& a, const PatchEntry& b) { return a.name < b.name; });
@@ -213,19 +256,36 @@ std::vector<PatchEntry> Session::listPatches() const {
 }
 
 bool Session::loadEntry(const PatchEntry& e) {
+  PatchLoadResult res;
+  PatchIdentity id;
   if (e.factory) {
-    if (e.factoryIndex < 0 || e.factoryIndex >= static_cast<int>(factoryPresets().size())) return false;
-    adopt(factoryPresets()[static_cast<size_t>(e.factoryIndex)].build(), e.name);
-    cfg_.lastPatch = e.key();
-    return true;
+    const PresetInfo* f = findFactoryPreset(e.id);
+    if (!f) {
+      res.add(Diagnostic::Severity::Error, "missing-asset", e.id, "factory preset '" + e.id + "' is not embedded in this build");
+    } else {
+      res = f->load;
+      id = {PatchIdentity::Kind::Factory, f->id, f->source};
+    }
+  } else {
+    res = loadPatchFile(e.path);
+    id = {PatchIdentity::Kind::User, e.path.filename().string(), e.path.string()};
   }
-  auto res = loadPatchFile(e.path);
-  if (!res.patch) {
-    setStatus("Cannot load " + e.name + ": " + res.error, true);
+  const std::string label = e.name + (e.factory ? " [FACTORY]" : " [USER]");
+  Patch loaded;
+  const bool ok = res.ok();
+  if (ok) loaded = *res.patch;
+  recordLoad(std::move(res), e.name);
+  if (!ok) {
+    setStatus("Cannot load " + e.name + " (current patch kept): " + lastLoad_.error +
+                  (lastLoad_.count(Diagnostic::Severity::Error) > 1 ? " (+ more, see F4)" : ""),
+              true);
     return false;
   }
-  adopt(std::move(*res.patch), e.name);
-  if (!res.warnings.empty()) setStatus("Loaded " + e.name + " (" + res.warnings.front() + ")");
+  if (!adopt(std::move(loaded), label)) return false;
+  identity_ = id;
+  const size_t warn = lastLoad_.count(Diagnostic::Severity::Warning);
+  if (warn > 0)
+    setStatus("Loaded " + label + " with " + std::to_string(warn) + " warning(s) - see F4 diagnostics", true);
   cfg_.lastPatch = e.key();
   return true;
 }
@@ -233,7 +293,20 @@ bool Session::loadEntry(const PatchEntry& e) {
 void Session::newPatch() {
   adopt(makeEmptyPatch(), "");
   patch_.meta.name = "untitled";
+  identity_ = {};
+  recordLoad({}, "");
   setStatus("New empty patch: press A to add modules");
+}
+
+std::string Session::exportCurrent(fs::path* written) {
+  const fs::path dir = configDirectory() / "exports";
+  std::error_code ec;
+  fs::create_directories(dir, ec);
+  const fs::path path = dir / (sanitizePatchFileName(patch_.meta.name) + ".json");
+  const std::string err = savePatchFile(patch_, path);
+  if (!err.empty()) return err;
+  if (written) *written = path;
+  return {};
 }
 
 std::string Session::saveCurrent(const std::string& name) {
@@ -248,6 +321,7 @@ std::string Session::saveCurrent(const std::string& name) {
   if (!err.empty()) return err;
   patch_.meta.name = name;
   dirty_ = false;
+  identity_ = {PatchIdentity::Kind::User, path.filename().string(), path.string()};
   PatchEntry e;
   e.path = path;
   cfg_.lastPatch = e.key();
@@ -302,7 +376,10 @@ void Session::loadConfig() {
     cfg_.bufferFrames = std::min(std::max(j.value("bufferFrames", cfg_.bufferFrames), 64), 4096);
     cfg_.deviceName = j.value("device", cfg_.deviceName);
     cfg_.volume = std::min(std::max(j.value("volume", cfg_.volume), 0.0f), 1.0f);
-    cfg_.noteMode = j.value("noteMode", std::string("timed")) == "latch" ? NoteMode::Latch : NoteMode::Timed;
+    {
+      const std::string nm = j.value("noteMode", std::string("timed"));
+      cfg_.noteMode = nm == "latch" ? NoteMode::Latch : (nm == "live" ? NoteMode::Live : NoteMode::Timed);
+    }
     cfg_.holdSeconds = std::min(std::max(j.value("holdSeconds", cfg_.holdSeconds), 0.05f), 8.0f);
     {
       const std::string kl = j.value("keyLayout", std::string("qwerty"));
@@ -324,7 +401,7 @@ void Session::saveConfig() const {
   j["bufferFrames"] = cfg_.bufferFrames;
   j["device"] = cfg_.deviceName;
   j["volume"] = cfg_.volume;
-  j["noteMode"] = cfg_.noteMode == NoteMode::Latch ? "latch" : "timed";
+  j["noteMode"] = cfg_.noteMode == NoteMode::Latch ? "latch" : (cfg_.noteMode == NoteMode::Live ? "live" : "timed");
   j["holdSeconds"] = player_.holdSeconds();
   j["keyLayout"] = cfg_.keyLayout == KeyLayout::Qwertz ? "qwertz" : (cfg_.keyLayout == KeyLayout::Azerty ? "azerty" : "qwerty");
   j["velocity"] = player_.velocity();

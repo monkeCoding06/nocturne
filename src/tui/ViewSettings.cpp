@@ -37,7 +37,7 @@ Element Ui::renderSettings(int width, int height) {
       {"PATCH", "VOICES", std::to_string(g.voices)},
       {"PATCH", "GLIDE", fmt("%.2f s", g.glide)},
       {"PATCH", "LEGATO", g.legato ? "ON" : "OFF"},
-      {"PLAY", "NOTE MODE", c.noteMode == NoteMode::Latch ? "LATCH" : "TIMED"},
+      {"PLAY", "NOTE MODE", std::string(noteModeName(s_.player().mode())) + (s_.player().liveAvailable() ? "" : "  (LIVE unavailable)")},
       {"PLAY", "NOTE LENGTH", fmt("%.2f s", s_.player().holdSeconds())},
       {"PLAY", "VELOCITY", fmt("%.2f", s_.player().velocity())},
       {"PLAY", "KEY LAYOUT", keyLayoutName(c.keyLayout)},
@@ -122,10 +122,12 @@ void Ui::adjustSetting(int dir, bool fine) {
     case 5: g.voices = std::min(kMaxVoices, std::max(1, g.voices + dir)); s_.setGlobal(g); break;
     case 6: g.glide = std::min(2.0f, std::max(0.0f, g.glide + static_cast<float>(dir) * (fine ? 0.01f : 0.05f))); s_.setGlobal(g); break;
     case 7: g.legato = !g.legato; s_.setGlobal(g); break;
-    case 8:
-      c.noteMode = c.noteMode == NoteMode::Timed ? NoteMode::Latch : NoteMode::Timed;
-      s_.player().setMode(c.noteMode);
+    case 8: {
+      const bool liveSkipped = s_.player().mode() == NoteMode::Latch && !s_.player().liveAvailable();
+      c.noteMode = s_.player().cycleMode();
+      if (liveSkipped) s_.setStatus("LIVE unavailable: " + s_.player().liveDescription(), true);
       break;
+    }
     case 9:
       s_.player().setHoldSeconds(s_.player().holdSeconds() + static_cast<float>(dir) * (fine ? 0.05f : 0.25f));
       c.holdSeconds = s_.player().holdSeconds();

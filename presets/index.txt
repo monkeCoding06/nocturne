@@ -1,0 +1,11 @@
+# Factory preset order (F4 list). The first entry is the startup patch.
+# Every presets/<id>.json must be listed here and vice versa; the build fails otherwise.
+init
+sub
+glass
+drone
+noise
+lead
+hoover
+euro_hoover
+euro_hoover_v1

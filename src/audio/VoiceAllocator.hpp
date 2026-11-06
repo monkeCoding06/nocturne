@@ -41,6 +41,7 @@ class VoiceAllocator {
   void clearStack() { stackSize_ = 0; }
 
   int activeVoices() const;
+  int gatedVoices() const;  // voices whose key is still held (not yet releasing)
 
  private:
   VoiceAction polyOn(int note, float vel);

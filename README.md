@@ -32,7 +32,7 @@ src/dsp       oscillator (PolyBLEP/PolyBLAMP), ADSR, filter, LFO, delay/saturato
 src/modules   module registry: specs (ports, params) + DSP wrappers
 src/patch     patch model, graph validation, cycle check, JSON I/O, factory presets
 src/audio     lock-free queue, voice allocator, compiled rack, Engine, miniaudio device
-src/input     key -> note mapping (timed / latch); MIDI could call the Engine directly
+src/input     key -> note mapping (timed / latch / live key state); MIDI could call the Engine directly
 src/app       Session: patch editing, config, patch files, engine sync
 src/tui       FTXUI views
 tests         DSP, patch and engine tests (no audio hardware needed)
@@ -65,7 +65,19 @@ With Visual Studio use `cmake -S . -B build` then `cmake --build build --config 
 Use Windows Terminal for best colors and Unicode. Options: `-DNOCTURNE_BUILD_TESTS=OFF`,
 `-DNOCTURNE_BUILD_APP=OFF` (DSP core + tests only, no network fetch of FTXUI/miniaudio).
 
-`nocturne --export-presets DIR` writes the factory patches as JSON (see `presets/`).
+`nocturne --export-presets DIR` writes the built-in factory patches as JSON (byte-identical to `presets/`);
+`nocturne --check-presets` verifies them and compares them with an on-disk `presets/` directory
+(`$NOCTURNE_PRESET_DIR`, `<exe>/presets`, `<exe>/../share/nocturne/presets`).
+
+**Factory presets are generated from `presets/*.json` at build time** (`cmake/EmbedPresets.cmake`, order in
+`presets/index.txt`) and compiled into the executable, so they never depend on the working directory or an
+install. Embedded data always wins; an on-disk copy that differs is reported in F4. User patches
+(`<config>/patches`) are listed as USER and never replace a factory patch of the same name.
+
+**F4 Patches:** the header and F4 show the loaded patch's name, FACTORY/USER, source (embedded id or file
+path) and MODIFIED. `Tab` switches the right panel between preview, all load diagnostics (errors fatal, warnings
+for clamped/ignored/dropped content) and the exact loaded JSON; `Ctrl+E` exports it to `<config>/exports/`.
+A fatal load error never replaces the current patch.
 
 ## Playing
 
@@ -74,12 +86,23 @@ QWERTY, QWERTZ or AZERTY in Settings (F5) → KEY LAYOUT; the Play view relabels
 choice is saved. On AZERTY the accented digit-row sharps cannot be read, and `A` is a note, so
 use **F9** to add a module in the Rack.
 
-Terminals report key presses but **never releases**, so NOCTURNE offers two honest modes
-(toggle with **Tab** in the Play view or in Settings):
+Terminals normally report key presses but **no releases**, so NOCTURNE offers three modes
+(cycle with **Tab** in the Play view or in Settings):
 
 * **TIMED**: each key sounds for NOTE LENGTH (default 0.5 s), then releases. Holding a key
   (auto-repeat) extends it.
 * **LATCH**: press a key to start the note, press it again to release it.
+* **LIVE**: real keyboard behaviour: a note sounds exactly while its key is physically held and
+  releases (ADSR release) on key-up; chords, overlaps and rapid re-taps work; effect tails keep
+  ringing. It reads the *physical* key state, not typed characters, so auto-repeat is ignored.
+  Limitations: implemented on **Windows only** (`GetAsyncKeyState` by scan code, so it is
+  layout-independent). It acts only while the terminal window is the foreground window (conhost
+  and Windows Terminal are detected via the console window owner / ancestor processes; with several
+  Windows Terminal tabs any tab counts as focused), ignores keys while Ctrl/Alt/Win are held,
+  and Shift = accent. Over SSH/remote consoles and on Linux/macOS terminals there are no key-up
+  events (kitty keyboard protocol is not implemented), so LIVE is shown as **UNAVAILABLE** and is
+  skipped by Tab. It never falls back to a timer. LIVE is a keyboard mode only: the patch's
+  mono/poly/legato setting still decides voice behaviour.
 
 ```text
   sharps:   2 3   5 6 7   9 0        (upper row, octave+1)

@@ -10,10 +10,28 @@
 
 namespace nocturne {
 
+// One finding while reading a patch. Errors are fatal (no patch is produced);
+// warnings mean the patch loaded but differs from what the file asked for;
+// infos are harmless notes (e.g. a newer parameter missing from an old file).
+struct Diagnostic {
+  enum class Severity { Info, Warning, Error };
+  Severity severity = Severity::Warning;
+  std::string code;     // stable identifier, e.g. "unknown-param"
+  std::string where;    // module / connection / file the finding refers to (may be empty)
+  std::string message;
+  std::string text() const;  // "ERROR [unknown-module-type] X1: ..."
+};
+
 struct PatchLoadResult {
-  std::optional<Patch> patch;
-  std::string error;                  // set when patch is empty
-  std::vector<std::string> warnings;  // recoverable problems (dropped connections, unknown params...)
+  std::optional<Patch> patch;  // empty when any Error diagnostic exists
+  std::string source;          // human description of where the text came from
+  std::vector<Diagnostic> diagnostics;  // ALL findings, in discovery order
+  std::string error;                    // first fatal message (empty on success)
+  std::vector<std::string> warnings;    // text of every Warning diagnostic
+
+  bool ok() const { return patch.has_value(); }
+  size_t count(Diagnostic::Severity s) const;
+  void add(Diagnostic::Severity s, std::string code, std::string where, std::string message);
 };
 
 nlohmann::ordered_json patchToJson(const Patch& patch);

@@ -61,6 +61,9 @@ class Engine {
   float peakRight() const { return peakR_.load(std::memory_order_relaxed); }
   float cpuLoad() const { return cpu_.load(std::memory_order_relaxed); }
   int activeVoices() const { return activeVoices_.load(std::memory_order_relaxed); }
+  int gatedVoices() const { return gatedVoices_.load(std::memory_order_relaxed); }
+  // Number of voice (re)triggers since construction: each noteOn that starts an envelope.
+  std::uint32_t triggerCount() const { return triggers_.load(std::memory_order_relaxed); }
   std::uint32_t clipCount() const { return clips_.load(std::memory_order_relaxed); }
   static constexpr int kScopeSize = 4096;
   // Copies the most recent samples (oldest first). Returns number copied.
@@ -97,6 +100,8 @@ class Engine {
 
   std::atomic<float> peakL_{0}, peakR_{0}, cpu_{0};
   std::atomic<int> activeVoices_{0};
+  std::atomic<int> gatedVoices_{0};
+  std::atomic<std::uint32_t> triggers_{0};
   std::atomic<std::uint32_t> clips_{0};
   std::array<std::atomic<float>, kScopeSize> scope_{};
   std::atomic<std::uint32_t> scopeWrite_{0};

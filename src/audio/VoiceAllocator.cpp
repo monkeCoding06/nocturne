@@ -22,6 +22,12 @@ int VoiceAllocator::activeVoices() const {
   return n;
 }
 
+int VoiceAllocator::gatedVoices() const {
+  int n = 0;
+  for (int i = 0; i < count_; ++i) n += slots_[static_cast<size_t>(i)].gate ? 1 : 0;
+  return n;
+}
+
 VoiceAction VoiceAllocator::noteOn(int note, float velocity) {
   return mode_ == VoiceMode::Mono ? monoOn(note, velocity) : polyOn(note, velocity);
 }

@@ -108,6 +108,7 @@ void Engine::applyAction(const VoiceAction& a) {
   vs.velocity = a.velocity;
   vs.pitchTarget = static_cast<float>(a.note - 60) / 12.0f;
   if (a.kind == VoiceAction::Kind::Trigger) {
+    triggers_.fetch_add(1, std::memory_order_relaxed);
     if (a.cold || glide_ <= 0.0f) vs.pitchCur = vs.pitchTarget;
     VoiceCtx ctx;
     ctx.pitch = vs.pitchCur; ctx.gate = 1.0f; ctx.velocity = a.velocity; ctx.note = a.note;
@@ -286,6 +287,7 @@ void Engine::render(float* out, int frames) {
   peakL_.store(std::max(peakL, peakL_.load(std::memory_order_relaxed) * fall), std::memory_order_relaxed);
   peakR_.store(std::max(peakR, peakR_.load(std::memory_order_relaxed) * fall), std::memory_order_relaxed);
   activeVoices_.store(alloc_.activeVoices(), std::memory_order_relaxed);
+  gatedVoices_.store(alloc_.gatedVoices(), std::memory_order_relaxed);
 
   const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
   const float load = static_cast<float>(elapsed / (frames / sr_));

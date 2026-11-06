@@ -195,9 +195,9 @@ TEST(patch_loader_rejects_garbage_without_throwing) {
   CHECK(!patchFromString("{not json").patch.has_value());
   CHECK(!patchFromString("[1,2,3]").patch.has_value());
   CHECK(!patchFromString("{\"format\":\"other\"}").patch.has_value());
-  // Unknown module types, bad connections and out-of-range values degrade gracefully.
+  // Unknown module types are fatal; out-of-range values and bad connections degrade with diagnostics.
   const std::string text = R"({"format":"nocturne-patch","version":1,
-    "modules":[{"name":"MASTER","type":"master"},{"name":"X1","type":"warp"},
+    "modules":[{"name":"MASTER","type":"master"},
                {"name":"OSC1","type":"osc","params":{"level":99,"wave":"banana","bogus":1}}],
     "connections":[{"from":"OSC1.OUT","to":"MASTER.IN"},{"from":"X1.OUT","to":"MASTER.IN"},
                    {"from":"OSC1.OUT","to":"MASTER.NOPE"}]})";
@@ -205,7 +205,6 @@ TEST(patch_loader_rejects_garbage_without_throwing) {
   CHECK(res.patch.has_value());
   if (res.patch) {
     CHECK(res.patch->connections.size() == 1);
-    CHECK(res.patch->findModule("X1") < 0);
     CHECK(!res.warnings.empty());
     const ModuleSpec* o = findSpec("osc");
     CHECK(res.patch->modules[static_cast<size_t>(res.patch->findModule("OSC1"))].params[static_cast<size_t>(o->paramIndex("level"))] <= 1.0f);

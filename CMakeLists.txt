@@ -56,7 +56,20 @@ endif()
 file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS
   src/dsp/*.cpp src/modules/*.cpp src/patch/*.cpp src/input/*.cpp
   src/audio/Engine.cpp src/audio/Rack.cpp src/audio/VoiceAllocator.cpp)
-add_library(nocturne_core STATIC ${CORE_SOURCES})
+
+# Factory presets: presets/*.json are the single source of truth. They are
+# compiled into the executable at build time (works from any cwd / install state).
+file(GLOB PRESET_FILES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/presets/*.json)
+set(PRESET_GENERATED ${CMAKE_BINARY_DIR}/generated/EmbeddedPresets.cpp)
+add_custom_command(
+  OUTPUT ${PRESET_GENERATED}
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/generated
+  COMMAND ${CMAKE_COMMAND} -DPRESET_DIR=${CMAKE_SOURCE_DIR}/presets -DOUT=${PRESET_GENERATED}
+          -P ${CMAKE_SOURCE_DIR}/cmake/EmbedPresets.cmake
+  DEPENDS ${PRESET_FILES} ${CMAKE_SOURCE_DIR}/presets/index.txt ${CMAKE_SOURCE_DIR}/cmake/EmbedPresets.cmake
+  COMMENT "Embedding presets/*.json"
+  VERBATIM)
+add_library(nocturne_core STATIC ${CORE_SOURCES} ${PRESET_GENERATED})
 target_include_directories(nocturne_core PUBLIC src)
 target_link_libraries(nocturne_core PUBLIC nlohmann_json::nlohmann_json)
 target_compile_options(nocturne_core PRIVATE ${NOCTURNE_WARNINGS})
@@ -98,6 +111,12 @@ if(NOCTURNE_BUILD_TESTS)
   file(GLOB TEST_SOURCES CONFIGURE_DEPENDS tests/*.cpp)
   add_executable(nocturne_tests ${TEST_SOURCES})
   target_link_libraries(nocturne_tests PRIVATE nocturne_core)
+  target_compile_definitions(nocturne_tests PRIVATE NOCTURNE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+  if(NOCTURNE_BUILD_APP)
+    # Session (patch load/swap behaviour) lives in the device library; construction needs no audio hardware.
+    target_link_libraries(nocturne_tests PRIVATE nocturne_device)
+    target_compile_definitions(nocturne_tests PRIVATE NOCTURNE_HAS_SESSION=1)
+  endif()
   target_compile_options(nocturne_tests PRIVATE ${NOCTURNE_WARNINGS})
   add_test(NAME nocturne_tests COMMAND nocturne_tests)
 endif()

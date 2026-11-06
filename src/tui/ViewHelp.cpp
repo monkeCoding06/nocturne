@@ -39,6 +39,12 @@ Element Ui::renderHelp(int width, int height) {
       key("Enter", "type a value  (e.g. 2.4k, 440, saw)"),
       key("Backspace", "reset to default"),
       key("A / Delete", "add / remove module"),
+      text(" "),
+      head("PATCHES (F4)"),
+      key("Enter", "load selected (FACTORY = built in, USER = file)"),
+      key("Tab", "right panel: preview / diagnostics / loaded JSON"),
+      key("Ctrl+E", "export loaded patch JSON to <config>/exports"),
+      key("Up / Down", "scroll the diagnostics / JSON panel"),
   });
   Element right = vbox({
       head("PATCH BAY"),
@@ -55,8 +61,8 @@ Element Ui::renderHelp(int width, int height) {
       key("Up / Down", "velocity"),
       key("Left / Right", "octave"),
       text(" "),
-      head("NOTES WITHOUT KEY-RELEASE"),
-      paragraph("  Terminals report key presses but never releases. TIMED mode plays each note for the NOTE LENGTH (holding a key repeats and extends it). LATCH mode toggles: press to start, press again to stop. Change in Settings.") |
+      head("NOTE MODES  (Tab in Play view)"),
+      paragraph("  Terminals report key presses but normally no releases. TIMED plays each note for the NOTE LENGTH (key repeat extends it). LATCH: press to start, press again to stop. LIVE: the note sounds exactly while the key is physically held and releases on key-up; it reads the real key state (Windows: GetAsyncKeyState, only while this window has focus; Ctrl/Alt ignored; Shift = accent) and is shown UNAVAILABLE where no key-up info exists. Effect tails always ring out.") |
           color(theme::dim),
       text(" "),
       head("ACCEPTANCE TOUR"),
