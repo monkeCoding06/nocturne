@@ -60,6 +60,19 @@ float Oscillator::next(Wave wave, float dt, float pw, float phaseOffset) {
       out = v;
       break;
     }
+    case Wave::SawPwm: {
+      // Alpha Juno-style "PWM sawtooth": a rising ramp over the first (1 - pw) of the cycle, then a
+      // flat segment of width pw at the top. pw -> 0 gives a plain saw, pw -> 1 a narrow spike.
+      const float r = 1.0f - pw;
+      float v = p < r ? -1.0f + 2.0f * p / r : 1.0f;
+      v -= polyBlep(p, dt);  // downward step of 2 at p = 0
+      float d = p - r;       // slope change of -2/r at the ramp/flat corner
+      if (d > 0.5f) d -= 1.0f;
+      if (d < -0.5f) d += 1.0f;
+      v += (-2.0f / r) * dt * polyBlamp(d / dt);
+      out = (v - pw) / (1.0f + pw);  // mean of the shape is pw; keep peaks within +-1
+      break;
+    }
     case Wave::Noise:
       out = noise_.next();
       break;

@@ -19,7 +19,7 @@ std::uint32_t nextSeed() {
 // ------------------------------------------------------------------ OSC
 class OscModule final : public Module {
  public:
-  enum Param { Wave, Key, Oct, Semi, Fine, Freq, Level, Pw, Phase };
+  enum Param { Wave, Key, Oct, Semi, Fine, Freq, Level, Pw, Phase, Range };
   enum In { InPitch, InFm, InPwm };
 
   OscModule() { osc_.seedNoise(nextSeed()); }
@@ -55,11 +55,12 @@ class OscModule final : public Module {
     const float* fmIn = io.in[InFm];
     const float* pwmIn = io.in[InPwm];
     const float invSr = 1.0f / static_cast<float>(sr_);
+    const float pitchScale = param(Range) / 12.0f;  // PITCH amount 1.0 = `range` semitones
 
     for (int i = 0; i < io.n; ++i) {
       float f = base;
       float mod = 0.0f;
-      if (pitchIn) mod += pitchIn[i];
+      if (pitchIn) mod += pitchIn[i] * pitchScale;
       if (fmIn) mod += fmIn[i];
       if (mod != 0.0f) f *= std::exp2(mod);
       float pw = pw_.next();
@@ -162,7 +163,7 @@ void registerSourceModules(std::vector<ModuleSpec>& out) {
                 cvIn("PWM", "pulse width modulation", true)};
     s.outputs = {audioOut("OUT")};
     s.params = {
-        enumParam("wave", "WAVE", {"SINE", "TRI", "SAW", "SQUARE", "PULSE", "NOISE"}, 2),
+        enumParam("wave", "WAVE", {"SINE", "TRI", "SAW", "SQUARE",         "PULSE", "NOISE", "SAWPWM"}, 2),
         enumParam("key", "KEY", {"OFF", "ON"}, 1),
         intParam("oct", "OCT", -4, 4, 0),
         intParam("semi", "SEMI", -24, 24, 0, "st"),
@@ -171,6 +172,7 @@ void registerSourceModules(std::vector<ModuleSpec>& out) {
         floatParam("level", "LEVEL", 0.0f, 1.0f, 0.8f),
         floatParam("pw", "PW", 0.05f, 0.95f, 0.5f),
         floatParam("phase", "PHASE", 0.0f, 360.0f, 0.0f, "deg", ParamScale::Linear, 0),
+                floatParam("range", "PITCH RNG", 1.0f, 48.0f, 12.0f, "st", ParamScale::Linear, 0),
     };
     s.create = [] { return std::unique_ptr<Module>(new OscModule()); };
     out.push_back(std::move(s));

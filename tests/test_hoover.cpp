@@ -286,14 +286,14 @@ TEST(euro_hoover_loads_plays_releases_and_stays_clean) {
     std::vector<float> mono(s.l.size());
     for (size_t i = 0; i < mono.size(); ++i) mono[i] = 0.5f * (s.l[i] + s.r[i]);
     const size_t from = static_cast<size_t>(kSr * 1.5), to = static_cast<size_t>(kSr * 2.8);
-    CHECK_NEAR(fundamental(mono, from, to - from, f0), f0, f0 * 0.03);   // settles onto the played note
+    CHECK_NEAR(fundamental(mono, from, to - from, f0 / 2), f0 / 2, f0 * 0.015);  // octave-down layer defines the composite period
     CHECK(rmsOf(mono, from, to) > 0.03);                                // strong sustain
     const double dcv = std::fabs(meanOf(mono, from, to)), rv = rmsOf(mono, from, to);
     std::printf("    %s mean %.4f rms %.4f peak %.3f\n", c.file, dcv, rv, peakOf(mono));
     CHECK(dcv < 0.1 * rv);  // no DC (loose: the window holds a non-integer number of bass cycles)
     CHECK(peakOf(mono) < 1.0f);                                         // no clipping
     // the dive: pitch at the start is clearly above the final pitch
-    CHECK(fundamental(mono, 240, 2400, f0 * 1.3) > f0 * 1.15);
+    CHECK(fundamental(mono, 240, 2400, f0 * 1.6) > f0 * 1.15);
     // stereo image
     double d = 0;
     for (size_t i = from; i < to; ++i) d += std::fabs(s.l[i] - s.r[i]);
@@ -366,3 +366,148 @@ TEST(keyboard_octave_range_reaches_midi_zero) {
   pl.setOctave(99);
   CHECK(pl.octave() == 8);
 }
+
+namespace {
+// OSC(wave) -> AMP(ADSR sustain 1) -> MASTER, no pitch/PWM modulation.
+Patch oscPatch(int wave, float pw) {
+  Patch p = sinePatch();
+  setp(p, "OSC1", "wave", static_cast<float>(wave));
+  setp(p, "OSC1", "pw", pw);
+  return p;
+}
+}  // namespace
+
+TEST(saw_pwm_is_clean_continuous_and_tracks_pitch) {
+  const int kSawPwm = 6, kSaw = 2;
+  std::vector<float> prev;
+  for (float pw : {0.05f, 0.2f, 0.5f, 0.8f, 0.95f}) {
+    Engine e(kSr);
+    loadPatch(e, oscPatch(kSawPwm, pw));
+    e.noteOn(36, 1.0f);
+    renderMono(e, 4800);
+    const auto x = renderMono(e, static_cast<int>(kSr));
+    CHECK(peakOf(x) <= 1.001f);
+    CHECK(peakOf(x) > 0.2f);
+    CHECK(std::fabs(meanOf(x, 0, x.size())) < 0.02);       // DC removed at every width
+    CHECK_NEAR(rising(x, 0, x.size()), 65.406, 1.0);        // pw does not change the pitch
+    for (float v : x) CHECK(std::isfinite(v));
+    if (!prev.empty()) {                                    // shape changes smoothly with pw
+      double d = 0;
+      for (size_t i = 0; i < x.size(); ++i) d += std::fabs(x[i] - prev[i]);
+      CHECK(d / static_cast<double>(x.size()) > 0.0);
+    }
+    prev = x;
+  }
+  // unlike plain SAW, pw changes the waveform
+  Engine a(kSr), b(kSr);
+  loadPatch(a, oscPatch(kSaw, 0.1f)); loadPatch(b, oscPatch(kSaw, 0.9f));
+  a.noteOn(36, 1.0f); b.noteOn(36, 1.0f);
+  const auto sa = renderMono(a, 9600), sb = renderMono(b, 9600);
+  double plain = 0;
+  for (size_t i = 0; i < sa.size(); ++i) plain += std::fabs(sa[i] - sb[i]);
+  CHECK(plain < 1e-6);
+  Engine c(kSr), d(kSr);
+  loadPatch(c, oscPatch(kSawPwm, 0.1f)); loadPatch(d, oscPatch(kSawPwm, 0.9f));
+  c.noteOn(36, 1.0f); d.noteOn(36, 1.0f);
+  const auto sc = renderMono(c, 9600), sd = renderMono(d, 9600);
+  double pwmDiff = 0;
+  for (size_t i = 0; i < sc.size(); ++i) pwmDiff += std::fabs(sc[i] - sd[i]);
+  CHECK(pwmDiff / static_cast<double>(sc.size()) > 0.05);
+}
+
+TEST(saw_pwm_survives_extreme_modulation_at_high_notes) {
+  Patch p = oscPatch(6, 0.95f);
+  std::string n;
+  CHECK(addModule(p, "lfo", &n).empty());
+  setp(p, "LFO1", "wave", 2); setp(p, "LFO1", "rate", 40.0f); setp(p, "LFO1", "depth", 1.0f);
+  CHECK(connect(p, "LFO1", "OUT", "OSC1", "PWM", 1.0f).empty());
+  for (int note : {24, 84, 120}) {
+    Engine e(kSr);
+    loadPatch(e, p);
+    e.noteOn(note, 1.0f);
+    const auto x = renderMono(e, static_cast<int>(kSr));
+    for (float v : x) CHECK(std::isfinite(v));
+    CHECK(peakOf(x) < 1.01f);
+  }
+}
+
+TEST(osc_pitch_range_defines_semitones_per_unit_amount) {
+  // ADSR sustain 1.0 holds a constant CV of 1, so PITCH amount 1 shifts by exactly `range` semitones.
+  struct Case { float range; float amount; double ratio; };
+  for (const Case c : {Case{12.0f, 1.0f, 2.0}, Case{24.0f, 1.0f, 4.0}, Case{24.0f, 0.5f, 2.0}, Case{24.0f, -0.5f, 0.5},
+                       Case{12.0f, 0.1f, std::exp2(0.1)}}) {
+    Patch p = sinePatch();
+    std::string n;
+    CHECK(addModule(p, "adsr", &n).empty());
+    setp(p, "ADSR2", "attack", 0.001f); setp(p, "ADSR2", "sustain", 1.0f); setp(p, "ADSR2", "velocity", 0.0f);
+    setp(p, "OSC1", "range", c.range);
+    CHECK(connect(p, "ADSR2", "OUT", "OSC1", "PITCH", c.amount).empty());
+    Engine e(kSr);
+    loadPatch(e, p);
+    e.noteOn(48, 1.0f);
+    renderMono(e, 24000);
+    const auto x = renderMono(e, static_cast<int>(kSr * 2));
+    CHECK_NEAR(rising(x, 0, x.size()), 130.8128 * c.ratio, 130.8128 * c.ratio * 0.01);
+  }
+}
+
+TEST(euro_hoover_v2_uses_saw_pwm_and_keeps_v1) {
+  const Patch p = euro();
+  int sawPwm = 0;
+  for (size_t i = 0; i < p.modules.size(); ++i) {
+    const ModuleSpec* s = p.specOf(static_cast<int>(i));
+    if (s->type == "osc" && static_cast<int>(p.modules[i].params[static_cast<size_t>(s->paramIndex("wave"))]) == 6) ++sawPwm;
+  }
+  CHECK(sawPwm >= 2);
+  bool v1 = false;
+  for (const auto& info : factoryPresets()) v1 = v1 || info.id == "euro_hoover_v1";
+  CHECK(v1);
+}
+
+TEST(euro_hoover_v2_renders_c1_to_c4_dry_and_with_effects) {
+  struct Variant { const char* tag; bool dry; };
+  for (const Variant v : {Variant{"", false}, Variant{"_dry", true}}) {
+    for (int note : {24, 36, 48, 60}) {
+      Patch p = euro();
+      if (v.dry) { setp(p, "CHORUS1", "mix", 0.0f); setp(p, "DRIVE1", "mix", 0.0f); }
+      Engine e(kSr);
+      loadPatch(e, p);
+      e.noteOn(note, 1.0f, 2.0f);
+      const Stereo s = renderStereo(e, static_cast<int>(kSr * 3));
+      std::vector<float> mono(s.l.size());
+      for (size_t i = 0; i < mono.size(); ++i) mono[i] = 0.5f * (s.l[i] + s.r[i]);
+      const double f0 = 440.0 * std::exp2((note - 69) / 12.0);
+      const size_t from = static_cast<size_t>(kSr * 1.0), to = static_cast<size_t>(kSr * 1.9);
+      CHECK_NEAR(fundamental(mono, from, to - from, f0 / 2), f0 / 2, f0 * 0.015);  // sub layer period; all layers settle on the note
+      CHECK(rmsOf(mono, from, to) > 0.05);
+      CHECK(peakOf(s.l) < 0.9f && peakOf(s.r) < 0.9f);                     // headroom, no clipping
+      CHECK(std::fabs(meanOf(mono, from, to)) < 0.15 * rmsOf(mono, from, to));
+      CHECK(rmsOf(mono, 0, 1200) > 0.01);                                  // attack is present at once
+      CHECK(rmsOf(mono, mono.size() - 4800, mono.size()) < 1e-3);          // silent after release
+      writeWav(std::string("euro_hoover_v2") + v.tag + "_note" + std::to_string(note) + ".wav", s);
+    }
+  }
+}
+
+TEST(euro_hoover_v2_chord_and_riff_stay_in_headroom) {
+  Engine e(kSr);
+  loadPatch(e, euro());
+  for (int n : {36, 43, 48, 51}) e.noteOn(n, 1.0f, 1.5f);
+  const Stereo chord = renderStereo(e, static_cast<int>(kSr * 2.5));
+  CHECK(peakOf(chord.l) < 1.0f && peakOf(chord.r) < 1.0f);
+  CHECK(rmsOf(chord.l, static_cast<size_t>(kSr * 0.5), static_cast<size_t>(kSr * 1.4)) > 0.05);
+  CHECK(e.activeVoices() == 0);
+  writeWav("euro_hoover_v2_chord.wav", chord);
+
+  Stereo riff;
+  const int notes[8] = {36, 36, 39, 36, 41, 36, 43, 34};
+  for (int i = 0; i < 8; ++i) {
+    e.noteOn(notes[i], 1.0f, 0.2f);
+    const Stereo s = renderStereo(e, static_cast<int>(kSr * 0.25));
+    riff.l.insert(riff.l.end(), s.l.begin(), s.l.end());
+    riff.r.insert(riff.r.end(), s.r.begin(), s.r.end());
+  }
+  CHECK(peakOf(riff.l) < 1.0f && peakOf(riff.r) < 1.0f);
+  writeWav("euro_hoover_v2_riff.wav", riff);
+}
+

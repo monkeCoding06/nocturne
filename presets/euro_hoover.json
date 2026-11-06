@@ -4,13 +4,13 @@
   "meta": {
     "name": "EURO HOOVER",
     "author": "NOCTURNE",
-    "description": "90s rave hoover: saw/PWM stack, pitch dive, delayed vibrato, chorus. Great at C1-C3"
+    "description": "Rave hoover: PWM-saw stack + pulse + sub, 12 st pitch dive, fast PWM sweep, chorus. Great at C1-C3"
   },
   "global": {
     "mode": "poly",
     "voices": 6,
     "glide": 0.0,
-    "legato": true
+    "legato": false
   },
   "modules": [
     {
@@ -24,30 +24,32 @@
       "name": "OSC1",
       "type": "osc",
       "params": {
-        "wave": "saw",
+        "wave": "sawpwm",
         "key": "on",
         "oct": 0,
         "semi": 0,
-        "fine": 0.0,
+        "fine": 5.0,
         "freq": 261.6256,
         "level": 0.9,
         "pw": 0.5,
-        "phase": 0.0
+        "phase": 0.0,
+        "range": 24.0
       }
     },
     {
       "name": "OSC2",
       "type": "osc",
       "params": {
-        "wave": "pulse",
+        "wave": "sawpwm",
         "key": "on",
         "oct": 0,
         "semi": 0,
-        "fine": -13.0,
+        "fine": -5.0,
         "freq": 261.6256,
-        "level": 0.8,
-        "pw": 0.5,
-        "phase": 0.0
+        "level": 0.9,
+        "pw": 0.4,
+        "phase": 0.0,
+        "range": 24.0
       }
     },
     {
@@ -56,38 +58,40 @@
       "params": {
         "wave": "pulse",
         "key": "on",
-        "oct": 0,
+        "oct": -1,
         "semi": 0,
-        "fine": 13.0,
+        "fine": 0.0,
         "freq": 261.6256,
         "level": 0.8,
         "pw": 0.5,
-        "phase": 0.0
+        "phase": 0.0,
+        "range": 24.0
       }
     },
     {
       "name": "OSC4",
       "type": "osc",
       "params": {
-        "wave": "saw",
+        "wave": "sine",
         "key": "on",
         "oct": -1,
         "semi": 0,
-        "fine": 4.0,
+        "fine": 0.0,
         "freq": 261.6256,
         "level": 0.8,
         "pw": 0.5,
-        "phase": 0.0
+        "phase": 0.0,
+        "range": 24.0
       }
     },
     {
       "name": "MIX1",
       "type": "mixer",
       "params": {
-        "level1": 0.8,
-        "level2": 0.6,
-        "level3": 0.6,
-        "level4": 0.65
+        "level1": 0.45,
+        "level2": 0.45,
+        "level3": 0.2,
+        "level4": 0.2
       }
     },
     {
@@ -95,10 +99,10 @@
       "type": "filter",
       "params": {
         "type": "lowpass",
-        "cutoff": 3200.0,
-        "res": 0.25,
-        "drive": 0.3,
-        "keytrack": 0.5
+        "cutoff": 7000.0,
+        "res": 0.2,
+        "drive": 0.0,
+        "keytrack": 0.3
       }
     },
     {
@@ -106,10 +110,10 @@
       "type": "lfo",
       "params": {
         "wave": "sine",
-        "rate": 0.6,
+        "rate": 6.0,
         "depth": 1.0,
         "polarity": "bipolar",
-        "reset": "free",
+        "reset": "key",
         "phase": 0.0,
         "delay": 0.0,
         "fade": 0.0
@@ -125,7 +129,7 @@
         "polarity": "bipolar",
         "reset": "key",
         "phase": 0.0,
-        "delay": 0.35,
+        "delay": 0.25,
         "fade": 0.4
       }
     },
@@ -134,9 +138,9 @@
       "type": "adsr",
       "params": {
         "attack": 0.003,
-        "decay": 0.4,
-        "sustain": 0.85,
-        "release": 0.18,
+        "decay": 0.5,
+        "sustain": 0.9,
+        "release": 0.15,
         "velocity": 0.5
       }
     },
@@ -145,7 +149,18 @@
       "type": "adsr",
       "params": {
         "attack": 0.001,
-        "decay": 0.18,
+        "decay": 0.6,
+        "sustain": 0.2,
+        "release": 0.15,
+        "velocity": 0.0
+      }
+    },
+    {
+      "name": "ADSR3",
+      "type": "adsr",
+      "params": {
+        "attack": 0.001,
+        "decay": 0.7,
         "sustain": 0.0,
         "release": 0.1,
         "velocity": 0.0
@@ -155,80 +170,85 @@
       "name": "AMP1",
       "type": "amp",
       "params": {
-        "gain": 0.8
+        "gain": 0.9
       }
     },
     {
       "name": "DRIVE1",
       "type": "drive",
       "params": {
-        "drive": 0.3,
-        "tone": 7000.0,
-        "mix": 0.5,
-        "level": 0.8
+        "drive": 0.2,
+        "tone": 8000.0,
+        "mix": 0.3,
+        "level": 0.9
       }
     },
     {
       "name": "CHORUS1",
       "type": "chorus",
       "params": {
-        "rate": 0.7,
-        "depth": 4.0,
-        "mix": 0.55,
+        "rate": 0.8,
+        "depth": 2.0,
+        "mix": 0.35,
         "width": 1.0
       }
     }
   ],
   "connections": [
     {
-      "from": "ADSR2.OUT",
+      "from": "ADSR3.OUT",
       "to": "OSC1.PITCH",
-      "amount": 0.6
+      "amount": 0.5
     },
     {
       "from": "LFO2.OUT",
       "to": "OSC1.PITCH",
-      "amount": 0.006
+      "amount": 0.02
     },
     {
-      "from": "ADSR2.OUT",
+      "from": "ADSR3.OUT",
       "to": "OSC2.PITCH",
-      "amount": 0.6
+      "amount": 0.5
     },
     {
       "from": "LFO2.OUT",
       "to": "OSC2.PITCH",
-      "amount": 0.006
+      "amount": 0.02
     },
     {
-      "from": "ADSR2.OUT",
+      "from": "ADSR3.OUT",
       "to": "OSC3.PITCH",
-      "amount": 0.6
+      "amount": 0.5
     },
     {
       "from": "LFO2.OUT",
       "to": "OSC3.PITCH",
-      "amount": 0.006
+      "amount": 0.02
     },
     {
-      "from": "ADSR2.OUT",
+      "from": "ADSR3.OUT",
       "to": "OSC4.PITCH",
-      "amount": 0.6
+      "amount": 0.5
     },
     {
       "from": "LFO2.OUT",
       "to": "OSC4.PITCH",
-      "amount": 0.006
+      "amount": 0.02
+    },
+    {
+      "from": "LFO1.OUT",
+      "to": "OSC1.PWM",
+      "amount": 0.85
     },
     {
       "from": "LFO1.OUT",
       "to": "OSC2.PWM",
-      "amount": 0.5
+      "amount": 0.6
     },
     {
       "from": "LFO1.OUT",
       "to": "OSC3.PWM",
-      "amount": -0.5
+      "amount": 0.6
     },
     {
       "from": "OSC1.OUT",
@@ -258,7 +278,7 @@
     {
       "from": "ADSR2.OUT",
       "to": "FILTER1.CUTOFF",
-      "amount": 0.2
+      "amount": 0.15
     },
     {
       "from": "FILTER1.OUT",

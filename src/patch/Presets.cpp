@@ -44,7 +44,7 @@ struct B {
   }
 };
 
-enum { SINE, TRI, SAW, SQUARE, PULSE, NOISE };
+enum { SINE, TRI, SAW, SQUARE, PULSE, NOISE, SAWPWM };
 
 Patch initPatch() {
   B b("INIT", "Plain sine synthesizer: OSC > AMP (ADSR) > MASTER");
@@ -179,8 +179,9 @@ Patch hooverPatch() {
 
 // Alpha Juno style hoover: saw + two PWM'd pulses + sub saw, fast pitch-envelope dive,
 // slow PWM, delayed vibrato, resonant low-pass, light saturation, stereo chorus.
-Patch euroHooverPatch() {
-  B b("EURO HOOVER", "90s rave hoover: saw/PWM stack, pitch dive, delayed vibrato, chorus. Great at C1-C3");
+// Original first-generation preset, kept as a reference (plain saw/pulse stack, short pitch blip).
+Patch euroHooverV1Patch() {
+  B b("EURO HOOVER V1", "Original hoover attempt (static saw/pulse stack). Superseded by EURO HOOVER");
   b.add("osc"); b.add("osc"); b.add("osc"); b.add("osc"); b.add("mixer"); b.add("filter");
   b.add("lfo"); b.add("lfo"); b.add("adsr"); b.add("adsr"); b.add("amp"); b.add("drive"); b.add("chorus");
   b.set("OSC1", "wave", SAW).set("OSC1", "level", 0.9f);
@@ -213,6 +214,47 @@ Patch euroHooverPatch() {
   return b.p;
 }
 
+// Hoover built on the SAWPWM oscillator (Alpha Juno-style PWM sawtooth). Units:
+//  * OSC RANGE 24 st: a PITCH amount of 0.5 is exactly 12 semitones, 0.02 is 24 cents.
+//  * ADSR3 is a dedicated pitch envelope; its decay is the time to reach 0.1 % (time constant ~ D/6.9).
+//  * LFO1 sweeps the PWM at 6 Hz; the filter stays open and undriven so the PWM comb survives.
+Patch euroHooverPatch() {
+  B b("EURO HOOVER", "Rave hoover: PWM-saw stack + pulse + sub, 12 st pitch dive, fast PWM sweep, chorus. Great at C1-C3");
+  b.add("osc"); b.add("osc"); b.add("osc"); b.add("osc"); b.add("mixer"); b.add("filter");
+  b.add("lfo"); b.add("lfo"); b.add("adsr"); b.add("adsr"); b.add("adsr"); b.add("amp"); b.add("drive"); b.add("chorus");
+  b.set("OSC1", "wave", SAWPWM).set("OSC1", "fine", 5.0f).set("OSC1", "pw", 0.5f).set("OSC1", "level", 0.9f);
+  b.set("OSC2", "wave", SAWPWM).set("OSC2", "fine", -5.0f).set("OSC2", "pw", 0.4f).set("OSC2", "level", 0.9f);
+  b.set("OSC3", "wave", PULSE).set("OSC3", "oct", -1).set("OSC3", "pw", 0.5f).set("OSC3", "level", 0.8f);
+  b.set("OSC4", "wave", SINE).set("OSC4", "oct", -1).set("OSC4", "level", 0.8f);
+  for (const char* o : {"OSC1", "OSC2", "OSC3", "OSC4"}) b.set(o, "range", 24.0f);
+  b.set("MIX1", "level1", 0.45f).set("MIX1", "level2", 0.45f).set("MIX1", "level3", 0.2f).set("MIX1", "level4", 0.2f);
+  b.set("FILTER1", "cutoff", 7000.0f).set("FILTER1", "res", 0.2f).set("FILTER1", "drive", 0.0f).set("FILTER1", "keytrack", 0.3f);
+  b.set("LFO1", "wave", SINE).set("LFO1", "rate", 6.0f).set("LFO1", "depth", 1.0f).set("LFO1", "reset", 1);
+  b.set("LFO2", "wave", SINE).set("LFO2", "rate", 5.5f).set("LFO2", "depth", 1.0f).set("LFO2", "reset", 1)
+      .set("LFO2", "delay", 0.25f).set("LFO2", "fade", 0.4f);
+  b.set("ADSR1", "attack", 0.003f).set("ADSR1", "decay", 0.5f).set("ADSR1", "sustain", 0.9f).set("ADSR1", "release", 0.15f);
+  b.set("ADSR2", "attack", 0.001f).set("ADSR2", "decay", 0.6f).set("ADSR2", "sustain", 0.2f).set("ADSR2", "release", 0.15f)
+      .set("ADSR2", "velocity", 0.0f);
+  b.set("ADSR3", "attack", 0.001f).set("ADSR3", "decay", 0.7f).set("ADSR3", "sustain", 0.0f).set("ADSR3", "release", 0.1f)
+      .set("ADSR3", "velocity", 0.0f);
+  b.set("AMP1", "gain", 0.9f);
+  b.set("DRIVE1", "drive", 0.2f).set("DRIVE1", "tone", 8000.0f).set("DRIVE1", "mix", 0.3f).set("DRIVE1", "level", 0.9f);
+  b.set("CHORUS1", "rate", 0.8f).set("CHORUS1", "depth", 2.0f).set("CHORUS1", "mix", 0.35f).set("CHORUS1", "width", 1.0f);
+  for (const char* o : {"OSC1", "OSC2", "OSC3", "OSC4"}) {
+    b.wire("ADSR3", "OUT", o, "PITCH", 0.5f);   // +12 semitones at note start, dives onto the note
+    b.wire("LFO2", "OUT", o, "PITCH", 0.02f);   // delayed vibrato, +-24 cents
+  }
+  b.wire("LFO1", "OUT", "OSC1", "PWM", 0.85f).wire("LFO1", "OUT", "OSC2", "PWM", 0.6f).wire("LFO1", "OUT", "OSC3", "PWM", 0.6f);
+  b.wire("OSC1", "OUT", "MIX1", "IN1").wire("OSC2", "OUT", "MIX1", "IN2")
+      .wire("OSC3", "OUT", "MIX1", "IN3").wire("OSC4", "OUT", "MIX1", "IN4");
+  b.wire("MIX1", "OUT", "FILTER1", "IN").wire("ADSR2", "OUT", "FILTER1", "CUTOFF", 0.15f);
+  b.wire("FILTER1", "OUT", "AMP1", "IN").wire("ADSR1", "OUT", "AMP1", "GAIN");
+  b.wire("AMP1", "OUT", "DRIVE1", "IN").wire("DRIVE1", "OUT", "CHORUS1", "IN");
+  b.wire("CHORUS1", "L", "MASTER", "L").wire("CHORUS1", "R", "MASTER", "R");
+  b.voices(6, VoiceMode::Poly, 0.0f, false);
+  return b.p;
+}
+
 }  // namespace
 
 const std::vector<PresetInfo>& factoryPresets() {
@@ -220,6 +262,7 @@ const std::vector<PresetInfo>& factoryPresets() {
       {"init", "INIT", initPatch},   {"sub", "SUB", subPatch},     {"glass", "GLASS", glassPatch},
       {"drone", "DRONE", dronePatch}, {"noise", "NOISE", noisePatch}, {"lead", "LEAD", leadPatch},
       {"hoover", "HOOVER", hooverPatch}, {"euro_hoover", "EURO HOOVER", euroHooverPatch},
+      {"euro_hoover_v1", "EURO HOOVER V1", euroHooverV1Patch},
   };
   return list;
 }

@@ -3,7 +3,8 @@
 
 namespace nocturne::dsp {
 
-enum class Wave { Sine, Triangle, Saw, Square, Pulse, Noise };
+// SawPwm appended last so stored wave indices of existing patches stay valid.
+enum class Wave { Sine, Triangle, Saw, Square, Pulse, Noise, SawPwm };
 
 // Band-limited oscillator. Discontinuities are corrected with PolyBLEP and the
 // triangle's slope discontinuities with PolyBLAMP, so no naive aliasing.

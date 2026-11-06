@@ -135,9 +135,18 @@ amount (−1…1; negative inverts).
 
 INIT (sine), SUB (bass), GLASS (FM bell + delay/reverb), DRONE (evolving, LFO-modulated),
 NOISE (band-passed noise), LEAD (mono, glide), HOOVER (rave stack with pitch swoop and PWM),
-EURO HOOVER (`presets/euro_hoover.json`: saw + two PWM pulses + sub saw, `ADSR2 → OSC.PITCH` dive,
-LFO PWM, delayed LFO vibrato, resonant low-pass, light drive, stereo CHORUS; best at octaves 1–3).
+EURO HOOVER (`presets/euro_hoover.json`: two PWM-saw oscillators + PWM pulse + sine sub, dedicated ADSR3 pitch dive of
+12 st, 6 Hz LFO PWM sweep, delayed ±24 ct vibrato, open low-pass, light drive, stereo CHORUS; best at octaves 1–3;
+the first-generation version is kept as EURO HOOVER V1, `presets/euro_hoover_v1.json`).
 Each is a real graph, not a renamed copy. Open it in F4 (Patches) and play in F3.
+
+### Oscillator notes
+* Waves: SINE, TRI, SAW, SQUARE, PULSE, NOISE, **SAWPWM** (band-limited ramp followed by a flat segment of width `pw`,
+  an Alpha Juno-style PWM sawtooth approximation; `pw` and the PWM input move the shape, DC is removed).
+* Modulation units: `PITCH`/`FM` are exponential (1.0 = 1 octave when OSC `RANGE` = 12 st). OSC **RANGE** (1–48 st, default 12)
+  sets how many semitones a PITCH amount of 1.0 spans, e.g. RANGE 24 and amount 0.5 = exactly 12 st; the default keeps old
+  patches unchanged. `PWM` = ±0.45 pulse width per unit, `FILTER.CUTOFF` = 5 octaves per unit.
+* ADSR decay/release times are the time to fall to 0.1 % (time constant ≈ time / 6.9).
 
 ### Deep bass and LFO
 * Keyboard octave runs **−1..8** (`[` `]` or ←/→ in Play; shown as `OCT n` in the status bar). Octave −1 puts the

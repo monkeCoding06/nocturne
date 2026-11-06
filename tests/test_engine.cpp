@@ -142,7 +142,7 @@ TEST(factory_presets_make_real_sound) {
     CHECK(e.activeVoices() == 0);  // every preset ends cleanly
     ++index;
   }
-  CHECK(index == 8);
+  CHECK(index == 9);
 }
 
 TEST(factory_presets_sound_different) {
